@@ -242,12 +242,17 @@ class _BlockContent extends StatelessWidget {
   final Map<String, QuizAttempt> attempts;
 
   @override
-  Widget build(BuildContext context) => switch (block) {
-        TextBlock() => TextBlockView(block: block),
-        VideoBlock() => VideoBlockView(block: block),
-        QuizBlock() => QuizBlockView(
-            block: block,
-            previousAttempt: attempts[block.id],
-          ),
-      };
+  Widget build(BuildContext context) {
+    // متغيّر محلي حتى يعمل ترقية النوع (promotion) داخل الـ switch:
+    // الحقول لا تُرقّى لأنها قد تتغيّر بين الفحص والاستعمال.
+    final block = this.block;
+    return switch (block) {
+      TextBlock() => TextBlockView(block: block),
+      VideoBlock() => VideoBlockView(block: block),
+      QuizBlock() => QuizBlockView(
+          block: block,
+          previousAttempt: attempts[block.id],
+        ),
+    };
+  }
 }

@@ -114,8 +114,10 @@ class _LessonFormSheetState extends State<LessonFormSheet> {
               const SizedBox(height: 20),
               Align(
                 alignment: AlignmentDirectional.centerStart,
-                child: Text(S.level,
-                    style: Theme.of(context).textTheme.labelLarge),
+                child: Text(
+                  S.level,
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
               ),
               const SizedBox(height: 8),
               SegmentedButton<LessonLevel>(

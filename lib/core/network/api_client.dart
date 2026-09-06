@@ -57,8 +57,12 @@ class ApiClient {
     try {
       return await run();
     } on DioException catch (error, stackTrace) {
-      Log.e('ApiClient', error.requestOptions.path,
-          error: error, stackTrace: stackTrace);
+      Log.e(
+        'ApiClient',
+        error.requestOptions.path,
+        error: error,
+        stackTrace: stackTrace,
+      );
       throw ErrorMapper.fromDio(error);
     } catch (error, stackTrace) {
       Log.e('ApiClient', 'unexpected', error: error, stackTrace: stackTrace);

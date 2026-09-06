@@ -225,8 +225,11 @@ class SyncService {
           error is NotFoundException ||
           error is ForbiddenException;
       if (isPermanent) {
-        Log.e('SyncService', 'عملية مرفوضة نهائيًا (${op.kind.wire})',
-            error: error);
+        Log.e(
+          'SyncService',
+          'عملية مرفوضة نهائيًا (${op.kind.wire})',
+          error: error,
+        );
         return _OpOutcome.permanentFailure;
       }
       await _outbox.update(op.markFailed(error.message));

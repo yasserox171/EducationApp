@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 /// إعدادات التطبيق القادمة من ملف `.env` أو من `--dart-define`.
@@ -25,7 +26,21 @@ class Env {
 
   static const String _baseUrlFromDefine = String.fromEnvironment('BASE_URL');
 
+  /// قيم بديلة تُستعمل في الاختبارات فقط بدل قراءة ملف `.env`.
+  static Map<String, String>? _testValues;
+
+  @visibleForTesting
+  static void setTestValues(Map<String, String>? values) =>
+      _testValues = values;
+
   static String _read(String key, {String fallback = ''}) {
+    final overrides = _testValues;
+    if (overrides != null) {
+      final value = overrides[key];
+      return value != null && value.trim().isNotEmpty
+          ? value.trim()
+          : fallback;
+    }
     if (_dotenvLoaded) {
       final value = dotenv.env[key];
       if (value != null && value.trim().isNotEmpty) return value.trim();

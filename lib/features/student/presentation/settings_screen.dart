@@ -78,8 +78,10 @@ class SettingsScreen extends ConsumerWidget {
             subtitle: const Text('الدروس المحمَّلة على الجهاز'),
           ),
           ListTile(
-            leading: Icon(Icons.delete_sweep_outlined,
-                color: theme.colorScheme.error),
+            leading: Icon(
+              Icons.delete_sweep_outlined,
+              color: theme.colorScheme.error,
+            ),
             title: const Text(S.deleteAllDownloads),
             onTap: () => _confirmDeleteDownloads(context, ref),
           ),

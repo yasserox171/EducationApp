@@ -118,9 +118,9 @@ sealed class LessonBlock {
           options: rawOptions is List
               ? rawOptions
                   .whereType<Map>()
-                  .map((e) => QuizOption.fromJson(
-                        Map<String, dynamic>.from(e),
-                      ))
+                  .map(
+                    (e) => QuizOption.fromJson(Map<String, dynamic>.from(e)),
+                  )
                   .toList(growable: false)
               : const <QuizOption>[],
           correctOptionId: data['correct_option_id']?.toString(),

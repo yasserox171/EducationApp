@@ -58,8 +58,10 @@ class ContentRepository {
       return remote;
     } on AppException catch (error) {
       if (local.isNotEmpty) {
-        Log.d('ContentRepository', 'فشل تحديث المواد، عرض النسخة المحلية: '
-            '${error.message}');
+        Log.d(
+          'ContentRepository',
+          'فشل تحديث المواد، عرض النسخة المحلية: ${error.message}',
+        );
         return local;
       }
       rethrow;
@@ -88,20 +90,22 @@ class ContentRepository {
     if (!shouldFetch || !await _networkInfo.isOnline) return local;
 
     try {
-      // نسحب كل المستويات ونفلتر محليًا: هكذا يستطيع التلميذ تغيير مستواه
+      // نسحب كل الأطوار ونفلتر محليًا: هكذا يستطيع التلميذ تغيير طوره
       // من الإعدادات دون الحاجة لاتصال جديد.
       final remote = await _api.fetchLessons(subjectId);
       await _dao.replaceLessonsOfSubject(subjectId, remote);
       await _kv.setDateTime(_lessonsSyncKey(subjectId), DateTime.now().toUtc());
-      return _dao.getLessons(
+      return await _dao.getLessons(
         subjectId: subjectId,
         level: level,
         publishedOnly: publishedOnly,
       );
     } on AppException catch (error) {
       if (local.isNotEmpty) {
-        Log.d('ContentRepository',
-            'فشل تحديث الدروس، عرض النسخة المحلية: ${error.message}');
+        Log.d(
+          'ContentRepository',
+          'فشل تحديث الدروس، عرض النسخة المحلية: ${error.message}',
+        );
         return local;
       }
       rethrow;
@@ -137,8 +141,10 @@ class ContentRepository {
       return remote;
     } on AppException catch (error) {
       if (local.isNotEmpty) {
-        Log.d('ContentRepository',
-            'فشل تحديث الفقرات، عرض النسخة المحلية: ${error.message}');
+        Log.d(
+          'ContentRepository',
+          'فشل تحديث الفقرات، عرض النسخة المحلية: ${error.message}',
+        );
         return local;
       }
       rethrow;
@@ -157,8 +163,10 @@ class ContentRepository {
       try {
         await getLessons(subject.id, publishedOnly: false, forceRefresh: true);
       } on AppException catch (error) {
-        Log.d('ContentRepository',
-            'تعذّر تحديث دروس ${subject.id}: ${error.message}');
+        Log.d(
+          'ContentRepository',
+          'تعذّر تحديث دروس ${subject.id}: ${error.message}',
+        );
       }
     }
     await _kv.setDateTime(KvDao.lastContentSyncAt, DateTime.now().toUtc());

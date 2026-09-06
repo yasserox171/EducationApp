@@ -35,7 +35,7 @@ class TeacherHomeScreen extends ConsumerWidget {
 
   Future<void> _create(BuildContext context, WidgetRef ref) async {
     final result = await SubjectFormSheet.show(context);
-    if (result == null) return;
+    if (result == null || !context.mounted) return;
     await _run(context, ref, () async {
       await ref.read(teacherRepositoryProvider).createSubject(
             title: result.title,
@@ -50,7 +50,7 @@ class TeacherHomeScreen extends ConsumerWidget {
     Subject subject,
   ) async {
     final result = await SubjectFormSheet.show(context, subject: subject);
-    if (result == null) return;
+    if (result == null || !context.mounted) return;
     await _run(context, ref, () async {
       await ref.read(teacherRepositoryProvider).updateSubject(
             id: subject.id,
@@ -84,7 +84,7 @@ class TeacherHomeScreen extends ConsumerWidget {
         ],
       ),
     );
-    if (!(confirmed ?? false)) return;
+    if (!(confirmed ?? false) || !context.mounted) return;
 
     await _run(context, ref, () async {
       await ref.read(teacherRepositoryProvider).deleteSubject(subject.id);

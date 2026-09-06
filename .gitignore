@@ -12,7 +12,8 @@ build/
 .flutter-plugins
 .flutter-plugins-dependencies
 .metadata
-pubspec.lock
+# ملاحظة: pubspec.lock مرفوع عمدًا (هذا تطبيق لا مكتبة) لتكون البناءات
+# متطابقة عند الجميع.
 
 # IDE
 .idea/

@@ -45,7 +45,7 @@ class LessonEditorScreen extends ConsumerWidget {
 
   Future<void> _addText(BuildContext context, WidgetRef ref) async {
     final result = await TextBlockForm.show(context);
-    if (result == null) return;
+    if (result == null || !context.mounted) return;
     await _run(context, ref, () async {
       await ref.read(teacherRepositoryProvider).addTextBlock(
             lessonId: lessonId,
@@ -62,7 +62,7 @@ class LessonEditorScreen extends ConsumerWidget {
 
   Future<void> _addQuiz(BuildContext context, WidgetRef ref) async {
     final result = await QuizBlockForm.show(context);
-    if (result == null) return;
+    if (result == null || !context.mounted) return;
     await _run(context, ref, () async {
       await ref.read(teacherRepositoryProvider).addQuizBlock(
             lessonId: lessonId,
@@ -82,7 +82,7 @@ class LessonEditorScreen extends ConsumerWidget {
     switch (block) {
       case TextBlock():
         final result = await TextBlockForm.show(context, block: block);
-        if (result == null) return;
+        if (result == null || !context.mounted) return;
         await _run(context, ref, () async {
           await ref.read(teacherRepositoryProvider).updateBlock(
             blockId: block.id,
@@ -92,7 +92,7 @@ class LessonEditorScreen extends ConsumerWidget {
 
       case QuizBlock():
         final result = await QuizBlockForm.show(context, block: block);
-        if (result == null) return;
+        if (result == null || !context.mounted) return;
         await _run(context, ref, () async {
           await ref.read(teacherRepositoryProvider).updateBlock(
             blockId: block.id,
@@ -139,7 +139,7 @@ class LessonEditorScreen extends ConsumerWidget {
         ],
       ),
     );
-    if (!(confirmed ?? false)) return;
+    if (!(confirmed ?? false) || !context.mounted) return;
 
     await _run(context, ref, () async {
       await ref.read(teacherRepositoryProvider).deleteBlock(block.id);
@@ -153,9 +153,9 @@ class LessonEditorScreen extends ConsumerWidget {
     int oldIndex,
     int newIndex,
   ) async {
+    // `onReorderItem` يسلّمنا `newIndex` مضبوطًا مسبقًا بعد حذف العنصر.
     final reordered = [...blocks];
-    final target = newIndex > oldIndex ? newIndex - 1 : newIndex;
-    reordered.insert(target, reordered.removeAt(oldIndex));
+    reordered.insert(newIndex, reordered.removeAt(oldIndex));
 
     await _run(context, ref, () async {
       await ref.read(teacherRepositoryProvider).reorderBlocks(
@@ -184,7 +184,7 @@ class LessonEditorScreen extends ConsumerWidget {
               builder: (list) => ReorderableListView.builder(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
                 itemCount: list.length,
-                onReorder: (oldIndex, newIndex) =>
+                onReorderItem: (oldIndex, newIndex) =>
                     _reorder(context, ref, list, oldIndex, newIndex),
                 itemBuilder: (context, index) => _BlockCard(
                   key: ValueKey(list[index].id),

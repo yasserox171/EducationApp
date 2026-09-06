@@ -42,13 +42,15 @@ dependencies:
 
   # أدوات
   uuid: ^4.4.0
-  intl: ^0.19.0
+  # يجب أن يطابق ما يثبّته flutter_localizations.
+  intl: ^0.20.3
   collection: ^1.18.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  sqflite_common_ffi: ^2.4.2+1
 
 flutter:
   uses-material-design: true

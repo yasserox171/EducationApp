@@ -30,7 +30,7 @@ class TeacherSubjectScreen extends ConsumerWidget {
 
   Future<void> _create(BuildContext context, WidgetRef ref) async {
     final result = await LessonFormSheet.show(context);
-    if (result == null) return;
+    if (result == null || !context.mounted) return;
 
     await _run(context, ref, () async {
       await ref.read(teacherRepositoryProvider).createLesson(
@@ -48,7 +48,7 @@ class TeacherSubjectScreen extends ConsumerWidget {
     Lesson lesson,
   ) async {
     final result = await LessonFormSheet.show(context, lesson: lesson);
-    if (result == null) return;
+    if (result == null || !context.mounted) return;
 
     await _run(context, ref, () async {
       await ref.read(teacherRepositoryProvider).updateLesson(
@@ -82,7 +82,7 @@ class TeacherSubjectScreen extends ConsumerWidget {
         ],
       ),
     );
-    if (!(confirmed ?? false)) return;
+    if (!(confirmed ?? false) || !context.mounted) return;
 
     await _run(context, ref, () async {
       await ref.read(teacherRepositoryProvider).deleteLesson(lesson.id);
@@ -109,9 +109,10 @@ class TeacherSubjectScreen extends ConsumerWidget {
     int oldIndex,
     int newIndex,
   ) async {
+    // `onReorderItem` يسلّمنا `newIndex` مضبوطًا مسبقًا بعد حذف العنصر،
+    // فلا حاجة لتعديله يدويًا.
     final reordered = [...lessons];
-    final target = newIndex > oldIndex ? newIndex - 1 : newIndex;
-    reordered.insert(target, reordered.removeAt(oldIndex));
+    reordered.insert(newIndex, reordered.removeAt(oldIndex));
 
     await _run(context, ref, () async {
       await ref.read(teacherRepositoryProvider).reorderLessons(
@@ -157,7 +158,7 @@ class TeacherSubjectScreen extends ConsumerWidget {
               builder: (list) => ReorderableListView.builder(
                 padding: const EdgeInsets.all(16),
                 itemCount: list.length,
-                onReorder: (oldIndex, newIndex) =>
+                onReorderItem: (oldIndex, newIndex) =>
                     _reorder(context, ref, list, oldIndex, newIndex),
                 itemBuilder: (context, index) {
                   final lesson = list[index];

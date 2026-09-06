@@ -24,9 +24,9 @@ class TeacherStats {
         averageQuizScore: (json['average_quiz_score'] as num?)?.toDouble(),
         lessons: (json['lessons'] as List?)
                 ?.whereType<Map>()
-                .map((e) => LessonStats.fromJson(
-                      Map<String, dynamic>.from(e),
-                    ))
+                .map(
+                  (e) => LessonStats.fromJson(Map<String, dynamic>.from(e)),
+                )
                 .toList(growable: false) ??
             const <LessonStats>[],
       );

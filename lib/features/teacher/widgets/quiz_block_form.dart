@@ -171,38 +171,45 @@ class _QuizBlockFormState extends State<QuizBlockForm> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                for (var i = 0; i < _options.length; i++)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Row(
-                      children: [
-                        Radio<String>(
-                          value: _options[i].id,
-                          groupValue: _correctOptionId,
-                          onChanged: (value) =>
-                              setState(() => _correctOptionId = value),
-                        ),
-                        Expanded(
-                          child: TextFormField(
-                            controller: _options[i].controller,
-                            decoration: InputDecoration(
-                              labelText: 'الخيار ${i + 1}',
-                            ),
-                            validator: (value) => (value ?? '').trim().isEmpty
-                                ? 'لا يمكن ترك خيار فارغًا.'
-                                : null,
+                // مجموعة اختيار واحدة: الدائرة المحدّدة = الإجابة الصحيحة.
+                RadioGroup<String>(
+                  groupValue: _correctOptionId,
+                  onChanged: (value) =>
+                      setState(() => _correctOptionId = value),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (var i = 0; i < _options.length; i++)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Row(
+                            children: [
+                              Radio<String>(value: _options[i].id),
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _options[i].controller,
+                                  decoration: InputDecoration(
+                                    labelText: 'الخيار ${i + 1}',
+                                  ),
+                                  validator: (value) =>
+                                      (value ?? '').trim().isEmpty
+                                          ? 'لا يمكن ترك خيار فارغًا.'
+                                          : null,
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: _options.length <=
+                                        AppConstants.quizMinOptions
+                                    ? null
+                                    : () => _removeOption(i),
+                                icon: const Icon(Icons.remove_circle_outline),
+                              ),
+                            ],
                           ),
                         ),
-                        IconButton(
-                          onPressed:
-                              _options.length <= AppConstants.quizMinOptions
-                                  ? null
-                                  : () => _removeOption(i),
-                          icon: const Icon(Icons.remove_circle_outline),
-                        ),
-                      ],
-                    ),
+                    ],
                   ),
+                ),
                 if (_options.length < AppConstants.quizMaxOptions)
                   Align(
                     alignment: AlignmentDirectional.centerStart,
