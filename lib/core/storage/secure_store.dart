@@ -9,7 +9,10 @@ class SecureStore {
   SecureStore([FlutterSecureStorage? storage])
       : _storage = storage ??
             const FlutterSecureStorage(
-              aOptions: AndroidOptions(encryptedSharedPreferences: true),
+              // منذ الإصدار 10 صار التشفير القوي (AES-GCM مع تغليف مفتاح
+              // RSA) هو السلوك الافتراضي على أندرويد، فلم يعد هناك خيار
+              // encryptedSharedPreferences.
+              aOptions: AndroidOptions(),
               iOptions: IOSOptions(
                 accessibility: KeychainAccessibility.first_unlock,
               ),

@@ -51,8 +51,9 @@ class _VideoUploadSheetState extends ConsumerState<VideoUploadSheet> {
 
   Future<void> _pickFile() async {
     setState(() => _error = null);
-    final result = await FilePicker.platform.pickFiles(type: FileType.video);
-    final path = result?.files.single.path;
+    // منذ الإصدار 12: دوال ساكنة، و pickFile تُرجع ملفًا واحدًا أو null.
+    final picked = await FilePicker.pickFile(type: FileType.video);
+    final path = picked?.path;
     if (path == null) return;
 
     final file = File(path);
