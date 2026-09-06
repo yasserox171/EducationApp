@@ -15,6 +15,10 @@ class ApiClient {
 
   final Dio dio;
 
+  /// `true` في وضع التجربة فقط (`DemoApiClient`). تستعمله الطبقات التي
+  /// تتطلّب خادمًا حقيقيًا (الرفع، والتحقّق من الاتصال قبل الكتابة).
+  bool get isDemo => false;
+
   factory ApiClient.create({
     required String? Function() tokenProvider,
     required void Function() onUnauthorized,

@@ -10,6 +10,23 @@
 
 ---
 
+## تجربة سريعة بلا خادم
+
+النسخة التجريبية تعمل ببيانات جاهزة (٣ مواد، ٩ دروس، ٣٢ فقرة) وحسابين:
+
+| الدور | البريد | كلمة السر |
+|---|---|---|
+| أستاذ | `prof@demo.dz` | `demo1234` |
+| تلميذ | `eleve@demo.dz` | `demo1234` |
+
+```bash
+cp .env.example .env      # ثم اضبط DEMO_MODE=true
+flutter run
+```
+
+للحصول على APK جاهز: تبويب **Actions** → **بناء APK** → **Run workflow**.
+التفاصيل في [`docs/DEMO.md`](docs/DEMO.md).
+
 ## البدء السريع
 
 ```bash
@@ -98,6 +115,7 @@ lib/
 |---|---|
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | الطبقات، نمط offline-first، المزامنة، حلّ التعارض |
 | [`docs/API_CONTRACT.md`](docs/API_CONTRACT.md) | كل مسار API ينتظره التطبيق مع أمثلة الردود |
+| [`docs/DEMO.md`](docs/DEMO.md) | وضع التجربة: الحسابات، المحتوى، حدوده، وبناء APK |
 
 ---
 

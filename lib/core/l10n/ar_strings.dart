@@ -33,6 +33,16 @@ class S {
   static const sessionExpired = 'انتهت الجلسة. سجّل الدخول من جديد.';
   static const noSelfSignup =
       'لا يوجد تسجيل ذاتي: الحسابات ينشئها الأستاذ.';
+
+  // ------------------------------------------------------------ وضع التجربة
+  static const demoBadge = 'نسخة تجريبية';
+  static const demoAccounts = 'حسابات التجربة — اضغط لملء البيانات:';
+  static const demoTeacherAccount = 'حساب أستاذ';
+  static const demoStudentAccount = 'حساب تلميذ';
+  static const demoNotice =
+      'هذه نسخة تجريبية تعمل ببيانات محليّة دون خادم. تعديلات الأستاذ '
+      'تعود إلى حالتها الأصلية عند إعادة تشغيل التطبيق، أما تقدّم التلميذ '
+      'والدروس المحمَّلة فتبقى محفوظة على الجهاز.';
   static const logoutConfirm =
       'سيتم حذف الدروس المحمَّلة على الجهاز عند الخروج. هل تريد المتابعة؟';
 

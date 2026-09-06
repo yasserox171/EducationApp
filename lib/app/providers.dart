@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/config/env.dart';
 import '../core/network/api_client.dart';
 import '../core/network/network_info.dart';
 import '../core/storage/app_database.dart';
@@ -15,6 +16,7 @@ import '../data/remote/auth_api.dart';
 import '../data/remote/content_api.dart';
 import '../data/remote/progress_api.dart';
 import '../data/remote/stats_api.dart';
+import '../data/demo/demo_api_client.dart';
 import '../data/remote/upload_api.dart';
 import '../data/repositories/auth_repository.dart';
 import '../data/repositories/content_repository.dart';
@@ -58,6 +60,9 @@ final connectivityProvider = StreamProvider<bool>(
 );
 
 final apiClientProvider = Provider<ApiClient>((ref) {
+  // وضع التجربة: خادم وهمي في الذاكرة بدل أي اتصال بالشبكة.
+  if (Env.demoMode) return DemoApiClient();
+
   final holder = ref.watch(sessionHolderProvider);
   return ApiClient.create(
     tokenProvider: () => holder.token,
@@ -145,6 +150,7 @@ final teacherRepositoryProvider = Provider<TeacherRepository>(
     statsApi: ref.watch(statsApiProvider),
     dao: ref.watch(contentDaoProvider),
     networkInfo: ref.watch(networkInfoProvider),
+    isDemo: Env.demoMode,
   ),
 );
 

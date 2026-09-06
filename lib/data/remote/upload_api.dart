@@ -55,6 +55,12 @@ class UploadApi {
       );
     }
 
+    // وضع التجربة: لا خادم يستقبل الملف، فنحاكي الرفع مع تقدّم حقيقي في
+    // الواجهة ثم نُرجع رابط عيّنة عامة ليبقى الفيديو قابلًا للتشغيل.
+    if (_client.isDemo) {
+      return _simulateUpload(sizeBytes: size, onProgress: onProgress);
+    }
+
     final formData = FormData.fromMap({
       'file': await MultipartFile.fromFile(
         file.path,
@@ -90,4 +96,25 @@ class UploadApi {
       throw ErrorMapper.fromDio(error);
     }
   }
+
+  /// رفع وهمي في وضع التجربة: يتقدّم على عشر خطوات خلال ثانيتين تقريبًا.
+  static Future<UploadedVideo> _simulateUpload({
+    required int sizeBytes,
+    void Function(double progress)? onProgress,
+  }) async {
+    const steps = 10;
+    for (var step = 1; step <= steps; step++) {
+      await Future<void>.delayed(const Duration(milliseconds: 180));
+      onProgress?.call(step / steps);
+    }
+    return UploadedVideo(
+      url: demoUploadedVideoUrl,
+      durationSeconds: 15,
+      sizeBytes: sizeBytes,
+    );
+  }
 }
+
+/// الرابط الذي يُرجعه الرفع الوهمي في وضع التجربة (عيّنة عامة).
+const String demoUploadedVideoUrl =
+    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4';

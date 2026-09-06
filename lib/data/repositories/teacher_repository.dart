@@ -23,11 +23,13 @@ class TeacherRepository {
     required StatsApi statsApi,
     required ContentDao dao,
     required NetworkInfo networkInfo,
+    bool isDemo = false,
   })  : _contentApi = contentApi,
         _uploadApi = uploadApi,
         _statsApi = statsApi,
         _dao = dao,
-        _networkInfo = networkInfo;
+        _networkInfo = networkInfo,
+        _isDemo = isDemo;
 
   final ContentApi _contentApi;
   final UploadApi _uploadApi;
@@ -35,7 +37,11 @@ class TeacherRepository {
   final ContentDao _dao;
   final NetworkInfo _networkInfo;
 
+  /// في وضع التجربة الخادم وهمي داخل التطبيق، فلا معنى لاشتراط الاتصال.
+  final bool _isDemo;
+
   Future<void> _requireOnline() async {
+    if (_isDemo) return;
     if (!await _networkInfo.isOnline) {
       throw const NetworkException(
         message: 'تعديل المحتوى يحتاج اتصالًا بالإنترنت.',

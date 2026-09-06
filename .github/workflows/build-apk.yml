@@ -1,0 +1,115 @@
+name: بناء APK
+
+# يبني نسخة APK قابلة للتثبيت مباشرة على الهاتف.
+# التشغيل يدوي من تبويب Actions (Run workflow).
+on:
+  workflow_dispatch:
+    inputs:
+      demo_mode:
+        description: "نسخة تجريبية ببيانات ديمو محليّة (بدون خادم)"
+        type: boolean
+        default: true
+      base_url:
+        description: "عنوان الـ API (يُستعمل فقط عندما demo_mode = false)"
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: جلب الشيفرة
+        uses: actions/checkout@v4
+
+      - name: تهيئة Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: تهيئة Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.2
+          channel: stable
+          cache: true
+
+      - name: كتابة ملف الإعدادات .env
+        run: |
+          {
+            echo "BASE_URL=${{ inputs.base_url }}"
+            echo "DEMO_MODE=${{ inputs.demo_mode }}"
+            echo "CONNECT_TIMEOUT_SECONDS=20"
+            echo "RECEIVE_TIMEOUT_SECONDS=60"
+            echo "UPLOAD_TIMEOUT_MINUTES=30"
+            echo "MAX_VIDEO_UPLOAD_MB=300"
+            echo "MAX_OFFLINE_STORAGE_MB=4096"
+            echo "VERBOSE_HTTP_LOGS=false"
+          } > .env
+          echo "--- .env ---"
+          cat .env
+
+      - name: مكتبة SQLite (تحتاجها اختبارات قاعدة البيانات)
+        run: sudo apt-get install -y libsqlite3-0
+
+      - name: توليد ملفات المنصّة وجلب الحزم
+        run: ./tool/bootstrap.sh
+
+      - name: فحص ثابت
+        run: flutter analyze
+
+      - name: الاختبارات
+        run: flutter test
+
+      - name: بناء APK
+        run: flutter build apk --release
+
+      - name: تسمية الملف
+        id: rename
+        run: |
+          mkdir -p dist
+          NAME="education-app-$(if [ "${{ inputs.demo_mode }}" = "true" ]; then echo demo; else echo prod; fi)-${{ github.run_number }}.apk"
+          cp build/app/outputs/flutter-apk/app-release.apk "dist/$NAME"
+          echo "apk_name=$NAME" >> "$GITHUB_OUTPUT"
+          ls -lh dist/
+
+      - name: رفع الملف كأثر للتشغيل
+        uses: actions/upload-artifact@v4
+        with:
+          name: education-app-apk
+          path: dist/*.apk
+          retention-days: 30
+
+      - name: نشر إصدار فيه رابط تنزيل مباشر
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: apk-${{ github.run_number }}
+          APK: ${{ steps.rename.outputs.apk_name }}
+        run: |
+          cat > notes.md <<'EOF'
+          نسخة قابلة للتثبيت مباشرة على أندرويد.
+
+          - موقّعة بمفتاح التطوير (debug key) — للتجربة الداخلية فقط، لا للنشر على Google Play.
+          - عند التثبيت قد يطلب الهاتف السماح بالتثبيت من مصادر غير معروفة.
+
+          **حسابات التجربة** (في النسخة التجريبية):
+
+          | الدور | البريد | كلمة السر |
+          |---|---|---|
+          | أستاذ | prof@demo.dz | demo1234 |
+          | تلميذ | eleve@demo.dz | demo1234 |
+          EOF
+
+          gh release create "$TAG" "dist/$APK" \
+            --title "نسخة APK رقم ${{ github.run_number }}" \
+            --notes-file notes.md
+
+          echo "### رابط تنزيل APK" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "https://github.com/${{ github.repository }}/releases/download/$TAG/$APK" >> "$GITHUB_STEP_SUMMARY"
+          echo "صفحة الإصدار: $(gh release view "$TAG" --json url --jq .url)" >> "$GITHUB_STEP_SUMMARY"

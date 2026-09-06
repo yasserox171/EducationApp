@@ -64,9 +64,15 @@ class Env {
     return raw;
   }
 
+  /// وضع التجربة: التطبيق يعمل بخادم وهمي في الذاكرة، بلا أي اتصال بخادم
+  /// حقيقي. يُفعّل بـ `DEMO_MODE=true` في `.env`.
+  static bool get demoMode => _readBool('DEMO_MODE');
+
   /// هل التطبيق مُهيّأ للاتصال بالخادم؟
   /// إن كانت `false` يعرض التطبيق شاشة «الإعداد ناقص» بدل شاشة الدخول.
+  /// في وضع التجربة لا حاجة لعنوان خادم أصلًا.
   static bool get isConfigured {
+    if (demoMode) return true;
     final url = baseUrl;
     return url.isNotEmpty &&
         (url.startsWith('http://') || url.startsWith('https://'));

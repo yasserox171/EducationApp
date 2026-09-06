@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/app_constants.dart';
+import '../../../core/config/env.dart';
 import '../../../core/l10n/ar_strings.dart';
+import '../../../data/demo/demo_data.dart';
 import '../auth_controller.dart';
 
 /// شاشة تسجيل الدخول — لا يوجد تسجيل ذاتي: الحسابات ينشئها الأستاذ.
@@ -158,12 +160,91 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
+                    if (Env.demoMode) ...[
+                      const SizedBox(height: 24),
+                      _DemoAccounts(
+                        onPick: (email) {
+                          _emailController.text = email;
+                          _passwordController.text = DemoUsers.password;
+                          setState(() {});
+                        },
+                      ),
+                    ],
                   ],
                 ),
               ),
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// بطاقة حسابات التجربة: ضغطة واحدة تملأ البريد وكلمة السر.
+class _DemoAccounts extends StatelessWidget {
+  const _DemoAccounts({required this.onPick});
+
+  final void Function(String email) onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.science_outlined,
+                size: 16,
+                color: theme.colorScheme.primary,
+              ),
+              const SizedBox(width: 6),
+              Text(S.demoBadge, style: theme.textTheme.labelLarge),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            S.demoAccounts,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall,
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => onPick(DemoUsers.teacherEmail),
+                  child: const Text(S.demoTeacherAccount),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => onPick(DemoUsers.studentEmail),
+                  child: const Text(S.demoStudentAccount),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            S.demoNotice,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
       ),
     );
   }
