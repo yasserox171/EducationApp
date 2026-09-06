@@ -1,4 +1,5 @@
 import 'package:education_app/core/error/app_exception.dart';
+import 'package:education_app/core/network/network_info.dart';
 import 'package:education_app/data/demo/demo_api_client.dart';
 import 'package:education_app/data/demo/demo_data.dart';
 import 'package:education_app/data/models/enums.dart';
@@ -334,6 +335,15 @@ void main() {
     });
   });
 
+
+  group('الاتصال في وضع التجربة', () {
+    test('وضع التجربة يعتبر التطبيق متصلًا دائمًا', () async {
+      final network = NetworkInfo(alwaysOnline: true);
+
+      expect(await network.isOnline, isTrue);
+      expect(await network.onStatusChange.first, isTrue);
+    });
+  });
   test('المستخدم الحالي يُقرأ بعد الدخول', () async {
     await authApi.login(
       email: DemoUsers.teacherEmail,

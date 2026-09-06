@@ -50,7 +50,8 @@ final secureStoreProvider = Provider<SecureStore>((ref) => SecureStore());
 
 final mediaStoreProvider = Provider<MediaStore>((ref) => MediaStore());
 
-final networkInfoProvider = Provider<NetworkInfo>((ref) => NetworkInfo());
+final networkInfoProvider =
+    Provider<NetworkInfo>((ref) => NetworkInfo(alwaysOnline: Env.demoMode));
 
 final sessionHolderProvider = Provider<SessionHolder>((ref) => SessionHolder());
 
