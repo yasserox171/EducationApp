@@ -24,7 +24,11 @@ cp .env.example .env      # ثم اضبط DEMO_MODE=true
 flutter run
 ```
 
-للحصول على APK جاهز: تبويب **Actions** → **بناء APK** → **Run workflow**.
+**آخر نسخة APK جاهزة للتثبيت:**
+[education-app-demo-3.apk](https://github.com/yasserox171/EducationApp/releases/download/apk-3/education-app-demo-3.apk)
+(~٥٦ م.ب، موقّعة بمفتاح تطوير — للتجربة لا للنشر).
+
+لبناء نسخة جديدة: تبويب **Actions** → **بناء APK** → **Run workflow**.
 التفاصيل في [`docs/DEMO.md`](docs/DEMO.md).
 
 ## البدء السريع
