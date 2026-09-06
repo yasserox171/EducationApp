@@ -57,9 +57,9 @@
 ]
 ```
 
-### `GET /subjects/{id}/lessons?level=intermediate`
-`level` اختياري (`intermediate` = متوسط، `advanced` = عالي). التطبيق يسحب
-كل المستويات ويفلتر محليًا ليتمكّن التلميذ من تغيير مستواه بلا اتصال.
+### `GET /subjects/{id}/lessons?level=middle`
+`level` اختياري، وقيمه الطور الدراسي: `middle` = متوسط، `secondary` = ثانوي.
+التطبيق يسحب كل الأطوار ويفلتر محليًا ليتمكّن التلميذ من تغيير طوره بلا اتصال.
 ```json
 [
   {
@@ -67,7 +67,7 @@
     "subject_id": "1",
     "title": "المعادلات من الدرجة الثانية",
     "summary": "…",
-    "level": "intermediate",
+    "level": "middle",
     "position": 0,
     "blocks_count": 7,
     "is_published": true,
@@ -191,9 +191,9 @@
 ### `GET /me/levels` و `PUT /me/levels/{subjectId}`
 ```json
 // GET → قائمة
-[{ "subject_id": "1", "level": "advanced", "updated_at": "…" }]
+[{ "subject_id": "1", "level": "secondary", "updated_at": "…" }]
 
-// PUT → { "level": "advanced" }
+// PUT → { "level": "secondary" }
 ```
 
 > ملاحظة: مسارات `/me/*` تخصّ التلميذ. للأستاذ يكفي أن يردّ الخادم `403`

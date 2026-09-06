@@ -16,10 +16,10 @@ enum UserRole {
       };
 }
 
-/// مستوى الدرس: متوسط / عالي.
+/// الطور الدراسي للدرس: متوسط / ثانوي.
 enum LessonLevel {
-  intermediate('intermediate', 'متوسط'),
-  advanced('advanced', 'عالي');
+  middle('middle', 'متوسط'),
+  secondary('secondary', 'ثانوي');
 
   const LessonLevel(this.wire, this.label);
 
@@ -27,8 +27,8 @@ enum LessonLevel {
   final String label;
 
   static LessonLevel fromWire(String? value) => switch (value) {
-        'advanced' => LessonLevel.advanced,
-        _ => LessonLevel.intermediate,
+        'secondary' => LessonLevel.secondary,
+        _ => LessonLevel.middle,
       };
 }
 

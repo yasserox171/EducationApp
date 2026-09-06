@@ -76,10 +76,13 @@ class S {
   static const myLessons = 'دروسي';
   static const myProgress = 'تقدّمي';
   static const settings = 'الإعدادات';
-  static const chooseLevel = 'اختر مستواك في هذه المادة';
-  static const changeLevel = 'تغيير المستوى';
-  static const levelIntermediate = 'متوسط';
-  static const levelAdvanced = 'عالي';
+  static const chooseLevel = 'اختر طورك الدراسي في هذه المادة';
+  static const changeLevel = 'تغيير الطور';
+  static const level = 'الطور';
+  static const levelMiddle = 'متوسط';
+  static const levelSecondary = 'ثانوي';
+  static const levelHint =
+      'ستظهر لك دروس هذا الطور فقط. يمكنك تغييره لاحقًا من الإعدادات.';
   static const next = 'التالي';
   static const previous = 'السابق';
   static const finishLesson = 'إنهاء الدرس';

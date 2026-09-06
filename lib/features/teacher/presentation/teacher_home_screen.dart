@@ -3,19 +3,93 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/providers.dart';
+import '../../../core/error/app_exception.dart';
 import '../../../core/l10n/ar_strings.dart';
 import '../../../core/router/route_paths.dart';
+import '../../../data/models/subject.dart';
 import '../../auth/auth_controller.dart';
 import '../../shared/providers/content_providers.dart';
 import '../../shared/widgets/async_view.dart';
 import '../../shared/widgets/status_banner.dart';
+import '../widgets/subject_form_sheet.dart';
 
-/// لوحة الأستاذ: قائمة المواد.
-///
-/// أزرار الإضافة/التعديل/الحذف ومحرّر الدرس تُبنى في المرحلة التالية —
-/// المستودع (`TeacherRepository`) جاهز لها بالفعل.
+/// لوحة الأستاذ: قائمة المواد مع الإضافة والتعديل والحذف.
 class TeacherHomeScreen extends ConsumerWidget {
   const TeacherHomeScreen({super.key});
+
+  Future<void> _run(
+    BuildContext context,
+    WidgetRef ref,
+    Future<void> Function() action,
+  ) async {
+    try {
+      await action();
+      ref.invalidate(subjectsProvider);
+    } on AppException catch (error) {
+      ref.invalidate(subjectsProvider);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+
+  Future<void> _create(BuildContext context, WidgetRef ref) async {
+    final result = await SubjectFormSheet.show(context);
+    if (result == null) return;
+    await _run(context, ref, () async {
+      await ref.read(teacherRepositoryProvider).createSubject(
+            title: result.title,
+            description: result.description,
+          );
+    });
+  }
+
+  Future<void> _edit(
+    BuildContext context,
+    WidgetRef ref,
+    Subject subject,
+  ) async {
+    final result = await SubjectFormSheet.show(context, subject: subject);
+    if (result == null) return;
+    await _run(context, ref, () async {
+      await ref.read(teacherRepositoryProvider).updateSubject(
+            id: subject.id,
+            title: result.title,
+            description: result.description,
+          );
+    });
+  }
+
+  Future<void> _delete(
+    BuildContext context,
+    WidgetRef ref,
+    Subject subject,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text(S.deleteSubject),
+        content: Text(
+          'سيُحذف «${subject.title}» بكل دروسه وفقراته نهائيًا.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text(S.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text(S.delete),
+          ),
+        ],
+      ),
+    );
+    if (!(confirmed ?? false)) return;
+
+    await _run(context, ref, () async {
+      await ref.read(teacherRepositoryProvider).deleteSubject(subject.id);
+    });
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -72,9 +146,22 @@ class TeacherHomeScreen extends ConsumerWidget {
                       child: ListTile(
                         title: Text(subject.title),
                         subtitle: Text('${subject.lessonsCount} درسًا'),
-                        trailing: const Icon(Icons.chevron_left),
                         onTap: () =>
                             context.push(Routes.teacherSubject(subject.id)),
+                        trailing: PopupMenuButton<String>(
+                          onSelected: (value) => switch (value) {
+                            'edit' => _edit(context, ref, subject),
+                            'delete' => _delete(context, ref, subject),
+                            _ => null,
+                          },
+                          itemBuilder: (context) => const [
+                            PopupMenuItem(value: 'edit', child: Text(S.edit)),
+                            PopupMenuItem(
+                              value: 'delete',
+                              child: Text(S.delete),
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   },
@@ -85,9 +172,7 @@ class TeacherHomeScreen extends ConsumerWidget {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(S.comingSoon)),
-        ),
+        onPressed: () => _create(context, ref),
         icon: const Icon(Icons.add),
         label: const Text(S.addSubject),
       ),

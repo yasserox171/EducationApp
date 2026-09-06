@@ -6,8 +6,9 @@ publish_to: "none"
 version: 0.1.0+1
 
 environment:
-  sdk: ">=3.4.0 <4.0.0"
-  flutter: ">=3.22.0"
+  sdk: ">=3.6.0 <4.0.0"
+  # 3.27 هو الحد الأدنى بسبب Color.withValues (بديل withOpacity المهجور).
+  flutter: ">=3.27.0"
 
 dependencies:
   flutter:

@@ -144,14 +144,14 @@ void main() {
   group('التعدادات', () {
     test('قيمة غير معروفة ترجع إلى الافتراضي', () {
       expect(UserRole.fromWire('unknown'), UserRole.student);
-      expect(LessonLevel.fromWire(null), LessonLevel.intermediate);
+      expect(LessonLevel.fromWire(null), LessonLevel.middle);
       expect(LessonStatus.fromWire('x'), LessonStatus.notStarted);
       expect(DownloadStatus.fromWire(null), DownloadStatus.none);
     });
 
     test('قيم السلك مطابقة للعقد مع الخادم', () {
-      expect(LessonLevel.advanced.wire, 'advanced');
-      expect(LessonLevel.intermediate.label, 'متوسط');
+      expect(LessonLevel.secondary.wire, 'secondary');
+      expect(LessonLevel.middle.label, 'متوسط');
       expect(LessonStatus.inProgress.wire, 'in_progress');
     });
   });
