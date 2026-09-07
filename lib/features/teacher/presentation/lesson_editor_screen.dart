@@ -6,6 +6,7 @@ import '../../../core/error/app_exception.dart';
 import '../../../core/l10n/ar_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../data/models/lesson_block.dart';
+import '../../../data/repositories/teacher_repository.dart';
 import '../../shared/providers/content_providers.dart';
 import '../../shared/widgets/async_view.dart';
 import '../../shared/widgets/status_banner.dart';
@@ -66,10 +67,7 @@ class LessonEditorScreen extends ConsumerWidget {
     await _run(context, ref, () async {
       await ref.read(teacherRepositoryProvider).addQuizBlock(
             lessonId: lessonId,
-            question: result.question,
-            options: result.options,
-            correctOptionId: result.correctOptionId,
-            explanation: result.explanation,
+            questions: result.questions,
           );
     });
   }
@@ -95,15 +93,9 @@ class LessonEditorScreen extends ConsumerWidget {
         if (result == null || !context.mounted) return;
         await _run(context, ref, () async {
           await ref.read(teacherRepositoryProvider).updateBlock(
-            blockId: block.id,
-            data: {
-              'question': result.question,
-              'options':
-                  result.options.map((e) => e.toJson()).toList(growable: false),
-              'correct_option_id': result.correctOptionId,
-              'explanation': result.explanation,
-            },
-          );
+                blockId: block.id,
+                data: TeacherRepository.quizDataOf(result.questions),
+              );
         });
 
       case VideoBlock():
@@ -258,9 +250,12 @@ class _BlockCard extends StatelessWidget {
             if (sizeBytes > 0) Formatters.bytes(sizeBytes),
           ].join(' — '),
         ),
-      QuizBlock(:final question, :final options) => (
+      QuizBlock(:final questions) => (
           Icons.quiz_outlined,
-          '${_preview(question)} (${options.length} خيارات)',
+          questions.isEmpty
+              ? 'بلا أسئلة'
+              : '${_preview(questions.first.question)}'
+                  '${questions.length > 1 ? ' (+${questions.length - 1} أسئلة)' : ''}',
         ),
     };
 

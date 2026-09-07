@@ -226,6 +226,25 @@ Map<String, dynamic> _video(
       'updated_at': _now(),
     };
 
+/// سؤال واحد داخل فقرة كويز.
+Map<String, dynamic> _question({
+  required String id,
+  required String question,
+  required List<List<String>> options,
+  required String correct,
+  String? explanation,
+}) =>
+    {
+      'id': id,
+      'question': question,
+      'options': [
+        for (final option in options) {'id': option[0], 'text': option[1]},
+      ],
+      'correct_option_id': correct,
+      'explanation': explanation,
+    };
+
+/// فقرة كويز بسؤال واحد (الشكل الشائع في هذه البيانات).
 Map<String, dynamic> _quiz(
   String id,
   String lessonId,
@@ -235,19 +254,34 @@ Map<String, dynamic> _quiz(
   required String correct,
   String? explanation,
 }) =>
+    _quizSet(
+      id,
+      lessonId,
+      position,
+      questions: [
+        _question(
+          id: 'q1',
+          question: question,
+          options: options,
+          correct: correct,
+          explanation: explanation,
+        ),
+      ],
+    );
+
+/// فقرة كويز بعدة أسئلة: النتيجة لا تظهر للتلميذ إلا بعد إتمامها كلها.
+Map<String, dynamic> _quizSet(
+  String id,
+  String lessonId,
+  int position, {
+  required List<Map<String, dynamic>> questions,
+}) =>
     {
       'id': id,
       'lesson_id': lessonId,
       'position': position,
       'type': 'quiz',
-      'data': {
-        'question': question,
-        'options': [
-          for (final option in options) {'id': option[0], 'text': option[1]},
-        ],
-        'correct_option_id': correct,
-        'explanation': explanation,
-      },
+      'data': {'questions': questions},
       'updated_at': _now(),
     };
 
@@ -298,18 +332,46 @@ Map<String, List<Map<String, dynamic>>> demoBlocks() => {
           correct: 'b',
           explanation: 'نقسم الطرفين على ٢ فنجد س = ٥.',
         ),
-        _quiz(
+        // فقرة بثلاثة أسئلة: نموذج لاختبار قصير في نهاية الدرس.
+        _quizSet(
           'b-m1-5',
           'l-math-1',
           4,
-          question: 'في المعادلة س − ٤ = ٦ ، ماذا نفعل أولًا؟',
-          options: [
-            ['a', 'نضيف ٤ إلى الطرفين'],
-            ['b', 'نطرح ٦ من الطرفين'],
-            ['c', 'نضرب الطرفين في ٤'],
+          questions: [
+            _question(
+              id: 'q1',
+              question: 'في المعادلة س − ٤ = ٦ ، ماذا نفعل أولًا؟',
+              options: [
+                ['a', 'نضيف ٤ إلى الطرفين'],
+                ['b', 'نطرح ٦ من الطرفين'],
+                ['c', 'نضرب الطرفين في ٤'],
+              ],
+              correct: 'a',
+              explanation: 'إضافة ٤ تعزل س في الطرف الأيسر: س = ١٠.',
+            ),
+            _question(
+              id: 'q2',
+              question: 'ما هو حلّ المعادلة: ٣ س + ٦ = ٠ ؟',
+              options: [
+                ['a', 'س = ٢'],
+                ['b', 'س = −٢'],
+                ['c', 'س = ٦'],
+              ],
+              correct: 'b',
+              explanation: 'نطرح ٦ ثم نقسم على ٣ فنجد س = −٢.',
+            ),
+            _question(
+              id: 'q3',
+              question: 'أيّ العبارات التالية معادلة من الدرجة الأولى؟',
+              options: [
+                ['a', 'س² + ١ = ٠'],
+                ['b', '٥ س − ٣ = ٧'],
+                ['c', '١ ÷ س = ٢'],
+              ],
+              correct: 'b',
+              explanation: 'الدرجة الأولى تعني أن أعلى أُسّ للمجهول هو ١.',
+            ),
           ],
-          correct: 'a',
-          explanation: 'إضافة ٤ تعزل س في الطرف الأيسر: س = ١٠.',
         ),
       ],
       'l-math-2': [

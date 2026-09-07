@@ -212,28 +212,21 @@ class TeacherRepository {
 
   Future<LessonBlock> addQuizBlock({
     required String lessonId,
-    required String question,
-    required List<QuizOption> options,
-    required String correctOptionId,
-    String? explanation,
+    required List<QuizQuestion> questions,
   }) async {
     await _requireOnline();
-    _validateQuiz(
-      question: question,
-      options: options,
-      correctOptionId: correctOptionId,
-    );
+    _validateQuiz(questions);
     return _contentApi.createBlock(
       lessonId: lessonId,
       type: BlockType.quiz,
-      data: {
-        'question': question.trim(),
-        'options': options.map((e) => e.toJson()).toList(growable: false),
-        'correct_option_id': correctOptionId,
-        'explanation': explanation?.trim(),
-      },
+      data: quizDataOf(questions),
     );
   }
+
+  /// شكل بيانات فقرة الكويز المتفق عليه مع الخادم.
+  static Map<String, dynamic> quizDataOf(List<QuizQuestion> questions) => {
+        'questions': questions.map((e) => e.toJson()).toList(growable: false),
+      };
 
   Future<LessonBlock> updateBlock({
     required String blockId,
@@ -259,22 +252,26 @@ class TeacherRepository {
     );
   }
 
-  static void _validateQuiz({
-    required String question,
-    required List<QuizOption> options,
-    required String correctOptionId,
-  }) {
-    if (question.trim().isEmpty) {
-      throw const ValidationException(message: 'نص السؤال مطلوب.');
+  static void _validateQuiz(List<QuizQuestion> questions) {
+    if (questions.isEmpty) {
+      throw const ValidationException(message: 'أضف سؤالًا واحدًا على الأقل.');
     }
-    if (options.length < 2) {
-      throw const ValidationException(message: 'أضف خيارين على الأقل.');
-    }
-    if (options.any((option) => option.text.trim().isEmpty)) {
-      throw const ValidationException(message: 'لا يمكن ترك خيار فارغًا.');
-    }
-    if (!options.any((option) => option.id == correctOptionId)) {
-      throw const ValidationException(message: 'حدّد الإجابة الصحيحة.');
+    for (final question in questions) {
+      if (question.question.trim().isEmpty) {
+        throw const ValidationException(message: 'نص السؤال مطلوب.');
+      }
+      if (question.options.length < 2) {
+        throw const ValidationException(message: 'أضف خيارين على الأقل.');
+      }
+      if (question.options.any((option) => option.text.trim().isEmpty)) {
+        throw const ValidationException(message: 'لا يمكن ترك خيار فارغًا.');
+      }
+      if (!question.options
+          .any((option) => option.id == question.correctOptionId)) {
+        throw const ValidationException(
+          message: 'حدّد الإجابة الصحيحة لكل سؤال.',
+        );
+      }
     }
   }
 

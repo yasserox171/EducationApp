@@ -108,23 +108,12 @@ sealed class LessonBlock {
           sizeBytes: (data['size_bytes'] as num?)?.toInt() ?? 0,
         );
       case BlockType.quiz:
-        final rawOptions = data['options'];
         return QuizBlock(
           id: id,
           lessonId: lessonId,
           position: position,
           updatedAt: updatedAt,
-          question: (data['question'] ?? '') as String,
-          options: rawOptions is List
-              ? rawOptions
-                  .whereType<Map>()
-                  .map(
-                    (e) => QuizOption.fromJson(Map<String, dynamic>.from(e)),
-                  )
-                  .toList(growable: false)
-              : const <QuizOption>[],
-          correctOptionId: data['correct_option_id']?.toString(),
-          explanation: data['explanation'] as String?,
+          questions: QuizQuestion.listFromData(data, fallbackId: id),
         );
     }
   }
@@ -213,23 +202,21 @@ class QuizOption {
   Map<String, dynamic> toJson() => {'id': id, 'text': text};
 }
 
-/// فقرة كويز: سؤال + اختيارات، إجابة واحدة صحيحة.
+/// سؤال واحد داخل فقرة كويز: نصّ + اختيارات + إجابة صحيحة واحدة.
 ///
-/// `correctOptionId` يكون `null` في نسخة التلميذ إن اختار الخادم عدم إرسال
-/// الإجابة الصحيحة مسبقًا؛ عندها يُصحَّح الجواب من الخادم. أما في الوضع
-/// الأوفلاين فالإجابة الصحيحة مطلوبة داخل الفقرة ليعمل التصحيح الفوري.
-class QuizBlock extends LessonBlock {
-  const QuizBlock({
-    required super.id,
-    required super.lessonId,
-    required super.position,
+/// `correctOptionId` يكون `null` إن اختار الخادم عدم إرسال الإجابة الصحيحة
+/// مسبقًا؛ عندها لا يمكن التصحيح على الجهاز. أما في الوضع الأوفلاين
+/// فالإجابة الصحيحة مطلوبة داخل السؤال ليعمل التصحيح محليًا.
+class QuizQuestion {
+  const QuizQuestion({
+    required this.id,
     required this.question,
     required this.options,
     this.correctOptionId,
     this.explanation,
-    super.updatedAt,
   });
 
+  final String id;
   final String question;
   final List<QuizOption> options;
   final String? correctOptionId;
@@ -238,14 +225,83 @@ class QuizBlock extends LessonBlock {
   bool isCorrect(String optionId) =>
       correctOptionId != null && correctOptionId == optionId;
 
+  /// نصّ الخيار الصحيح (لعرضه في بطاقة النتيجة عند الخطأ).
+  String? get correctOptionText {
+    for (final option in options) {
+      if (option.id == correctOptionId) return option.text;
+    }
+    return null;
+  }
+
+  factory QuizQuestion.fromJson(Map<String, dynamic> json, {String? fallbackId}) {
+    final rawOptions = json['options'];
+    return QuizQuestion(
+      id: json['id']?.toString() ?? fallbackId ?? '',
+      question: (json['question'] ?? '') as String,
+      options: rawOptions is List
+          ? rawOptions
+              .whereType<Map>()
+              .map((e) => QuizOption.fromJson(Map<String, dynamic>.from(e)))
+              .toList(growable: false)
+          : const <QuizOption>[],
+      correctOptionId: json['correct_option_id']?.toString(),
+      explanation: json['explanation'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'question': question,
+        'options': options.map((e) => e.toJson()).toList(growable: false),
+        'correct_option_id': correctOptionId,
+        'explanation': explanation,
+      };
+
+  /// يقرأ أسئلة الفقرة من `data` بالشكلين معًا:
+  /// * الجديد: `{"questions": [ {...}, {...} ]}`
+  /// * القديم (سؤال واحد في جذر البيانات): `{"question": "...", "options": [...]}`
+  ///
+  /// الشكل القديم يُقرأ كسؤال واحد معرّفه هو معرّف الفقرة، فتبقى محاولات
+  /// التلاميذ المسجَّلة سابقًا مرتبطة بسؤالها الصحيح.
+  static List<QuizQuestion> listFromData(
+    Map<String, dynamic> data, {
+    required String fallbackId,
+  }) {
+    final raw = data['questions'];
+    if (raw is List && raw.isNotEmpty) {
+      return raw
+          .whereType<Map>()
+          .map((e) => QuizQuestion.fromJson(Map<String, dynamic>.from(e)))
+          .where((question) => question.id.isNotEmpty)
+          .toList(growable: false);
+    }
+    if (data['question'] != null || data['options'] != null) {
+      return [QuizQuestion.fromJson(data, fallbackId: fallbackId)];
+    }
+    return const <QuizQuestion>[];
+  }
+}
+
+/// فقرة كويز: سؤال واحد أو أكثر. لا تُعرض أي نتيجة للتلميذ إلا بعد
+/// إجابته على كل أسئلة الفقرة.
+class QuizBlock extends LessonBlock {
+  const QuizBlock({
+    required super.id,
+    required super.lessonId,
+    required super.position,
+    required this.questions,
+    super.updatedAt,
+  });
+
+  final List<QuizQuestion> questions;
+
+  int get questionsCount => questions.length;
+
   @override
   BlockType get type => BlockType.quiz;
 
   @override
   Map<String, dynamic> dataToJson() => {
-        'question': question,
-        'options': options.map((e) => e.toJson()).toList(growable: false),
-        'correct_option_id': correctOptionId,
-        'explanation': explanation,
+        'questions': questions.map((e) => e.toJson()).toList(growable: false),
       };
 }

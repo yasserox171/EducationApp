@@ -110,11 +110,12 @@ class LessonProgress {
       );
 }
 
-/// محاولة إجابة على كويز.
+/// محاولة إجابة على سؤال واحد داخل فقرة كويز.
 class QuizAttempt {
   const QuizAttempt({
     required this.id,
     required this.blockId,
+    required this.questionId,
     required this.lessonId,
     required this.selectedOptionId,
     required this.isCorrect,
@@ -125,15 +126,26 @@ class QuizAttempt {
   /// معرّف محلي (UUID) يُستعمل كمفتاح idempotency عند الإرسال للخادم.
   final String id;
   final String blockId;
+
+  /// معرّف السؤال داخل الفقرة. في الفقرات القديمة (سؤال واحد) يساوي
+  /// معرّف الفقرة نفسها.
+  final String questionId;
   final String lessonId;
   final String selectedOptionId;
   final bool isCorrect;
   final DateTime answeredAt;
   final bool isDirty;
 
+  /// مفتاح مركّب: معرّفات الأسئلة فريدة داخل الفقرة فقط، لا عبر الدرس.
+  static String keyOf(String blockId, String questionId) =>
+      '$blockId::$questionId';
+
+  String get key => keyOf(blockId, questionId);
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'block_id': blockId,
+        'question_id': questionId,
         'lesson_id': lessonId,
         'selected_option_id': selectedOptionId,
         'is_correct': isCorrect,
@@ -143,6 +155,7 @@ class QuizAttempt {
   Map<String, Object?> toDbRow() => {
         'id': id,
         'block_id': blockId,
+        'question_id': questionId,
         'lesson_id': lessonId,
         'selected_option_id': selectedOptionId,
         'is_correct': isCorrect ? 1 : 0,
@@ -150,16 +163,24 @@ class QuizAttempt {
         'is_dirty': isDirty ? 1 : 0,
       };
 
-  factory QuizAttempt.fromDbRow(Map<String, Object?> row) => QuizAttempt(
-        id: row['id']! as String,
-        blockId: row['block_id']! as String,
-        lessonId: row['lesson_id']! as String,
-        selectedOptionId: row['selected_option_id']! as String,
-        isCorrect: (row['is_correct'] as int?) == 1,
-        answeredAt: DateTime.tryParse(row['answered_at'] as String? ?? '') ??
-            DateTime.now().toUtc(),
-        isDirty: (row['is_dirty'] as int?) == 1,
-      );
+  factory QuizAttempt.fromDbRow(Map<String, Object?> row) {
+    final blockId = row['block_id']! as String;
+    final questionId = row['question_id'] as String?;
+    return QuizAttempt(
+      id: row['id']! as String,
+      blockId: blockId,
+      // صفوف ما قبل الترقية بلا معرّف سؤال: السؤال هو الفقرة نفسها.
+      questionId: (questionId == null || questionId.isEmpty)
+          ? blockId
+          : questionId,
+      lessonId: row['lesson_id']! as String,
+      selectedOptionId: row['selected_option_id']! as String,
+      isCorrect: (row['is_correct'] as int?) == 1,
+      answeredAt: DateTime.tryParse(row['answered_at'] as String? ?? '') ??
+          DateTime.now().toUtc(),
+      isDirty: (row['is_dirty'] as int?) == 1,
+    );
+  }
 }
 
 /// المستوى الذي اختاره التلميذ لمادة معيّنة.

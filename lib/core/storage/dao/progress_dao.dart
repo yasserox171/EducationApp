@@ -129,18 +129,10 @@ class ProgressDao {
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
 
-  Future<QuizAttempt?> lastAttemptForBlock(String blockId) async {
-    final rows = await _db.query(
-      'quiz_attempts',
-      where: 'block_id = ?',
-      whereArgs: [blockId],
-      orderBy: 'answered_at DESC',
-      limit: 1,
-    );
-    if (rows.isEmpty) return null;
-    return QuizAttempt.fromDbRow(rows.first);
-  }
-
+  /// آخر إجابة لكل سؤال في الدرس، مفهرسة بـ `QuizAttempt.keyOf`.
+  ///
+  /// «الأحدث» تُحسب لكل (فقرة، سؤال) على حدة، فإعادة الكويز تُظهر الإجابات
+  /// الجديدة دون حذف المحاولات السابقة (الأستاذ يحتاجها في الإحصائيات).
   Future<Map<String, QuizAttempt>> lastAttemptsForLesson(
     String lessonId,
   ) async {
@@ -148,16 +140,39 @@ class ProgressDao {
       '''
       SELECT a.* FROM quiz_attempts a
       INNER JOIN (
-        SELECT block_id, MAX(answered_at) AS max_at
-        FROM quiz_attempts WHERE lesson_id = ? GROUP BY block_id
+        SELECT block_id, question_id, MAX(answered_at) AS max_at
+        FROM quiz_attempts WHERE lesson_id = ?
+        GROUP BY block_id, question_id
       ) latest
-      ON a.block_id = latest.block_id AND a.answered_at = latest.max_at
+      ON a.block_id = latest.block_id
+      AND a.question_id = latest.question_id
+      AND a.answered_at = latest.max_at
       ''',
       [lessonId],
     );
     return {
       for (final row in rows)
-        row['block_id']! as String: QuizAttempt.fromDbRow(row),
+        QuizAttempt.fromDbRow(row).key: QuizAttempt.fromDbRow(row),
+    };
+  }
+
+  /// آخر إجابة لكل سؤال داخل فقرة واحدة، مفهرسة بمعرّف السؤال.
+  Future<Map<String, QuizAttempt>> lastAttemptsForBlock(String blockId) async {
+    final rows = await _db.rawQuery(
+      '''
+      SELECT a.* FROM quiz_attempts a
+      INNER JOIN (
+        SELECT question_id, MAX(answered_at) AS max_at
+        FROM quiz_attempts WHERE block_id = ? GROUP BY question_id
+      ) latest
+      ON a.question_id = latest.question_id AND a.answered_at = latest.max_at
+      WHERE a.block_id = ?
+      ''',
+      [blockId, blockId],
+    );
+    return {
+      for (final row in rows)
+        QuizAttempt.fromDbRow(row).questionId: QuizAttempt.fromDbRow(row),
     };
   }
 

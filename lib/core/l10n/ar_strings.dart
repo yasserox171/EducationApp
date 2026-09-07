@@ -99,6 +99,22 @@ class S {
   static const resumeLesson = 'متابعة من حيث توقّفت';
   static const correctAnswerFeedback = 'إجابة صحيحة ✅';
   static const wrongAnswerFeedback = 'إجابة خاطئة ❌';
+
+  // --------------------------------------------------------------- الكويز
+  static const quiz = 'كويز';
+  static const quizResult = 'نتيجة الكويز';
+  static const quizReview = 'مراجعة الأسئلة';
+  static const quizRestart = 'إعادة الكويز';
+  static const quizRestarted = 'جولة جديدة: إجاباتك السابقة محفوظة للأستاذ.';
+  static const quizNoFeedbackHint =
+      'تظهر النتيجة بعد الإجابة على كل الأسئلة.';
+  static const nextQuestion = 'السؤال التالي';
+  static const previousQuestion = 'السؤال السابق';
+  static const yourAnswer = 'إجابتك';
+  static const addQuestion = 'إضافة سؤال';
+  static const quizFormHint =
+      'يمكن أن تحتوي الفقرة عدة أسئلة. لا يرى التلميذ نتيجته إلا بعد '
+      'الإجابة عليها كلها.';
   static const lessonsCompleted = 'دروس مكتملة';
 
   // ------------------------------------------------------------- التحميل

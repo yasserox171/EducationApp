@@ -156,13 +156,16 @@ void main() {
           final quizzes = (await contentApi.fetchBlocks(lesson.id))
               .whereType<QuizBlock>();
           for (final quiz in quizzes) {
-            expect(quiz.options.length, greaterThanOrEqualTo(2));
-            expect(
-              quiz.options.any((o) => o.id == quiz.correctOptionId),
-              isTrue,
-              reason: 'الكويز ${quiz.id} بلا إجابة صحيحة صالحة',
-            );
-            expect(quiz.isCorrect(quiz.correctOptionId!), isTrue);
+            expect(quiz.questions, isNotEmpty);
+            for (final question in quiz.questions) {
+              expect(question.options.length, greaterThanOrEqualTo(2));
+              expect(
+                question.options.any((o) => o.id == question.correctOptionId),
+                isTrue,
+                reason: 'السؤال ${question.id} في ${quiz.id} بلا إجابة صحيحة',
+              );
+              expect(question.isCorrect(question.correctOptionId!), isTrue);
+            }
           }
         }
       }
@@ -228,7 +231,10 @@ void main() {
       expect(blocks.length, 2);
       expect(blocks[0], isA<TextBlock>());
       expect(blocks[1], isA<QuizBlock>());
-      expect((blocks[1] as QuizBlock).isCorrect('b'), isTrue);
+      expect(
+        (blocks[1] as QuizBlock).questions.single.isCorrect('b'),
+        isTrue,
+      );
     });
 
     test('إعادة ترتيب الدروس تنعكس على القراءة', () async {

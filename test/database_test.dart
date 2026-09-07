@@ -8,7 +8,10 @@ import 'package:education_app/data/models/lesson_block.dart';
 import 'package:education_app/data/models/outbox_op.dart';
 import 'package:education_app/data/models/progress.dart';
 import 'package:education_app/data/models/subject.dart';
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 /// اختبارات قاعدة البيانات المحلية على SQLite حقيقي (في الذاكرة).
@@ -103,9 +106,14 @@ void main() {
           id: 'b2',
           lessonId: 'l1',
           position: 1,
-          question: 'س؟',
-          options: [QuizOption(id: 'a', text: 'أ')],
-          correctOptionId: 'a',
+          questions: [
+            QuizQuestion(
+              id: 'q1',
+              question: 'س؟',
+              options: [QuizOption(id: 'a', text: 'أ')],
+              correctOptionId: 'a',
+            ),
+          ],
         ),
         const TextBlock(id: 'b1', lessonId: 'l1', position: 0, body: 'نص'),
       ]);
@@ -115,7 +123,10 @@ void main() {
       expect(blocks.map((e) => e.id), ['b1', 'b2']);
       expect(blocks[0], isA<TextBlock>());
       expect(blocks[1], isA<QuizBlock>());
-      expect((blocks[1] as QuizBlock).isCorrect('a'), isTrue);
+      expect(
+        (blocks[1] as QuizBlock).questions.single.isCorrect('a'),
+        isTrue,
+      );
     });
 
     test('إعادة ترتيب الدروس تُحفظ', () async {
@@ -311,6 +322,162 @@ void main() {
 
       expect(await outboxDao.failedCount(), 0);
       expect((await outboxDao.readyOps()).length, 1);
+    });
+  });
+
+  group('محاولات الكويز', () {
+    QuizAttempt attempt({
+      required String questionId,
+      required String optionId,
+      required bool isCorrect,
+      required DateTime at,
+      String blockId = 'b1',
+    }) =>
+        QuizAttempt(
+          id: '$blockId-$questionId-${at.microsecondsSinceEpoch}',
+          blockId: blockId,
+          questionId: questionId,
+          lessonId: 'l1',
+          selectedOptionId: optionId,
+          isCorrect: isCorrect,
+          answeredAt: at,
+        );
+
+    test('كل سؤال يحتفظ بإجابته المستقلة داخل الفقرة نفسها', () async {
+      await progressDao.insertAttempt(
+        attempt(
+          questionId: 'q1',
+          optionId: 'a',
+          isCorrect: true,
+          at: DateTime.utc(2026, 1, 1),
+        ),
+      );
+      await progressDao.insertAttempt(
+        attempt(
+          questionId: 'q2',
+          optionId: 'b',
+          isCorrect: false,
+          at: DateTime.utc(2026, 1, 1, 1),
+        ),
+      );
+
+      final byQuestion = await progressDao.lastAttemptsForBlock('b1');
+
+      expect(byQuestion.length, 2);
+      expect(byQuestion['q1']!.isCorrect, isTrue);
+      expect(byQuestion['q2']!.isCorrect, isFalse);
+    });
+
+    test('إعادة الكويز: الأحدث لكل سؤال يفوز والقديم يبقى محفوظًا', () async {
+      await progressDao.insertAttempt(
+        attempt(
+          questionId: 'q1',
+          optionId: 'a',
+          isCorrect: false,
+          at: DateTime.utc(2026, 1, 1),
+        ),
+      );
+      await progressDao.insertAttempt(
+        attempt(
+          questionId: 'q1',
+          optionId: 'b',
+          isCorrect: true,
+          at: DateTime.utc(2026, 2, 1),
+        ),
+      );
+
+      final byQuestion = await progressDao.lastAttemptsForBlock('b1');
+      expect(byQuestion['q1']!.selectedOptionId, 'b');
+      expect(byQuestion['q1']!.isCorrect, isTrue);
+
+      // المحاولة الأقدم لم تُحذف: الأستاذ يحتاجها في الإحصائيات.
+      final all = await database.db.query('quiz_attempts');
+      expect(all.length, 2);
+    });
+
+    test('أسئلة فقرتين مختلفتين لا تتصادم رغم تشابه المعرّفات', () async {
+      await progressDao.insertAttempt(
+        attempt(
+          questionId: 'q1',
+          optionId: 'a',
+          isCorrect: true,
+          at: DateTime.utc(2026, 1, 1),
+        ),
+      );
+      await progressDao.insertAttempt(
+        attempt(
+          blockId: 'b2',
+          questionId: 'q1',
+          optionId: 'b',
+          isCorrect: false,
+          at: DateTime.utc(2026, 1, 2),
+        ),
+      );
+
+      final byKey = await progressDao.lastAttemptsForLesson('l1');
+
+      expect(byKey.length, 2);
+      expect(byKey[QuizAttempt.keyOf('b1', 'q1')]!.isCorrect, isTrue);
+      expect(byKey[QuizAttempt.keyOf('b2', 'q1')]!.isCorrect, isFalse);
+    });
+  });
+
+  group('ترقية قاعدة البيانات', () {
+    test('محاولات الإصدار الأول تُنسب إلى سؤال الفقرة بعد الترقية', () async {
+      // ملف مستقل لا قاعدة في الذاكرة: قواعد `:memory:` مشتركة هنا،
+      // فلو استعملناها لالتقطنا قاعدة الاختبار الحالية بمخطّطها الجديد.
+      final dir = Directory.systemTemp.createTempSync('edu_migration_');
+      addTearDown(() => dir.deleteSync(recursive: true));
+
+      final legacy = await databaseFactory.openDatabase(
+        p.join(dir.path, 'legacy.db'),
+        options: OpenDatabaseOptions(
+          version: 1,
+          onCreate: (db, version) async {
+            await db.execute('''
+              CREATE TABLE quiz_attempts (
+                id TEXT PRIMARY KEY,
+                block_id TEXT NOT NULL,
+                lesson_id TEXT NOT NULL,
+                selected_option_id TEXT NOT NULL,
+                is_correct INTEGER NOT NULL DEFAULT 0,
+                answered_at TEXT NOT NULL,
+                is_dirty INTEGER NOT NULL DEFAULT 1
+              )
+            ''');
+            await db.insert('quiz_attempts', {
+              'id': 'old-1',
+              'block_id': 'b-legacy',
+              'lesson_id': 'l1',
+              'selected_option_id': 'a',
+              'is_correct': 1,
+              'answered_at': DateTime.utc(2026, 1, 1).toIso8601String(),
+              'is_dirty': 0,
+            });
+          },
+        ),
+      );
+      addTearDown(legacy.close);
+
+      await AppDatabase.debugMigrateToV2(legacy);
+
+      final rows = await legacy.query('quiz_attempts');
+      expect(rows.single['question_id'], 'b-legacy');
+
+      final restored = QuizAttempt.fromDbRow(rows.single);
+      expect(restored.questionId, 'b-legacy');
+      expect(restored.isCorrect, isTrue);
+    });
+
+    test('الترقية لا تكرّر العمود إن طُبّقت مرتين', () async {
+      await AppDatabase.debugMigrateToV2(database.db);
+      await AppDatabase.debugMigrateToV2(database.db);
+
+      final columns =
+          await database.db.rawQuery('PRAGMA table_info(quiz_attempts)');
+      final questionColumns =
+          columns.where((c) => c['name'] == 'question_id').length;
+      expect(questionColumns, 1);
     });
   });
 

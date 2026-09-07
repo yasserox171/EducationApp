@@ -38,7 +38,8 @@ void main() {
       expect(block.sizeBytes, 1024);
     });
 
-    test('الكويز يصحّح الإجابة محليًا', () {
+    test('الشكل القديم (سؤال واحد في الجذر) يُقرأ كسؤال معرّفه معرّف الفقرة',
+        () {
       final block = LessonBlock.fromJson({
         'id': '3',
         'lesson_id': '10',
@@ -54,21 +55,121 @@ void main() {
         },
       }) as QuizBlock;
 
-      expect(block.options.length, 2);
-      expect(block.isCorrect('b'), isTrue);
-      expect(block.isCorrect('a'), isFalse);
+      expect(block.questions.length, 1);
+      // المعرّف = معرّف الفقرة، فتبقى المحاولات القديمة مرتبطة بسؤالها.
+      expect(block.questions.single.id, '3');
+      expect(block.questions.single.options.length, 2);
+      expect(block.questions.single.isCorrect('b'), isTrue);
+      expect(block.questions.single.isCorrect('a'), isFalse);
     });
 
-    test('كويز بلا إجابة صحيحة لا يعتبر أي خيار صحيحًا', () {
-      const block = QuizBlock(
-        id: '4',
-        lessonId: '10',
-        position: 0,
+    test('الشكل الجديد يقرأ عدة أسئلة بالترتيب', () {
+      final block = LessonBlock.fromJson({
+        'id': '3',
+        'lesson_id': '10',
+        'position': 0,
+        'type': 'quiz',
+        'data': {
+          'questions': [
+            {
+              'id': 'q1',
+              'question': 'س١',
+              'options': [
+                {'id': 'a', 'text': 'أ'},
+                {'id': 'b', 'text': 'ب'},
+              ],
+              'correct_option_id': 'a',
+              'explanation': 'لأن…',
+            },
+            {
+              'id': 'q2',
+              'question': 'س٢',
+              'options': [
+                {'id': 'a', 'text': 'أ'},
+                {'id': 'b', 'text': 'ب'},
+              ],
+              'correct_option_id': 'b',
+            },
+          ],
+        },
+      }) as QuizBlock;
+
+      expect(block.questionsCount, 2);
+      expect(block.questions.map((q) => q.id), ['q1', 'q2']);
+      expect(block.questions[0].isCorrect('a'), isTrue);
+      expect(block.questions[1].isCorrect('a'), isFalse);
+      expect(block.questions[0].explanation, 'لأن…');
+    });
+
+    test('نصّ الإجابة الصحيحة يُقرأ لعرضه في بطاقة النتيجة', () {
+      const question = QuizQuestion(
+        id: 'q1',
+        question: 'س',
+        options: [
+          QuizOption(id: 'a', text: 'أ'),
+          QuizOption(id: 'b', text: 'ب'),
+        ],
+        correctOptionId: 'b',
+      );
+
+      expect(question.correctOptionText, 'ب');
+    });
+
+    test('سؤال بلا إجابة صحيحة لا يعتبر أي خيار صحيحًا', () {
+      const question = QuizQuestion(
+        id: 'q1',
         question: 'س',
         options: [QuizOption(id: 'a', text: 'أ')],
       );
 
-      expect(block.isCorrect('a'), isFalse);
+      expect(question.isCorrect('a'), isFalse);
+      expect(question.correctOptionText, isNull);
+    });
+
+    test('فقرة كويز فارغة لا تنهار', () {
+      final block = LessonBlock.fromJson({
+        'id': '5',
+        'lesson_id': '10',
+        'position': 0,
+        'type': 'quiz',
+        'data': <String, dynamic>{},
+      }) as QuizBlock;
+
+      expect(block.questions, isEmpty);
+    });
+
+    test('الأسئلة تعود كما هي بعد الحفظ والقراءة', () {
+      const original = QuizBlock(
+        id: '6',
+        lessonId: '10',
+        position: 0,
+        questions: [
+          QuizQuestion(
+            id: 'q1',
+            question: 'س١',
+            options: [
+              QuizOption(id: 'a', text: 'أ'),
+              QuizOption(id: 'b', text: 'ب'),
+            ],
+            correctOptionId: 'b',
+          ),
+          QuizQuestion(
+            id: 'q2',
+            question: 'س٢',
+            options: [
+              QuizOption(id: 'a', text: 'أ'),
+              QuizOption(id: 'b', text: 'ب'),
+            ],
+            correctOptionId: 'a',
+          ),
+        ],
+      );
+
+      final restored = LessonBlock.fromDbRow(original.toDbRow()) as QuizBlock;
+
+      expect(restored.questionsCount, 2);
+      expect(restored.questions[1].id, 'q2');
+      expect(restored.questions[1].isCorrect('a'), isTrue);
     });
 
     test('الذهاب إلى صف قاعدة البيانات والعودة منه يحفظ البيانات', () {

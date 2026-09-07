@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
@@ -11,7 +12,10 @@ class AppDatabase {
   final Database db;
 
   static const String fileName = 'education_app.db';
-  static const int schemaVersion = 1;
+
+  /// 1: الإصدار الأول.
+  /// 2: `quiz_attempts.question_id` — فقرة الكويز صارت تحمل عدة أسئلة.
+  static const int schemaVersion = 2;
 
   static Future<AppDatabase> open({String? overridePath}) async {
     final path = overridePath ?? p.join(await getDatabasesPath(), fileName);
@@ -29,7 +33,11 @@ class AppDatabase {
         await batch.commit(noResult: true);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-        // الترحيلات المستقبلية تُضاف هنا خطوة بخطوة.
+        // كل ترحيل خطوة واحدة، وتُطبَّق بالترتيب حتى يصل أي جهاز قديم
+        // إلى الإصدار الحالي دون فقدان بيانات التلميذ.
+        if (oldVersion < 2) {
+          await _migrateToV2(db);
+        }
       },
     );
     return AppDatabase._(database);
@@ -45,6 +53,34 @@ class AppDatabase {
       batch.delete(table);
     }
     await batch.commit(noResult: true);
+  }
+
+  /// نقطة دخول للاختبارات للتحقّق من ترحيل الإصدار الثاني على قاعدة
+  /// أُنشئت بالمخطّط القديم.
+  @visibleForTesting
+  static Future<void> debugMigrateToV2(Database db) => _migrateToV2(db);
+
+  /// إضافة عمود السؤال إلى محاولات الكويز.
+  ///
+  /// المحاولات القديمة سُجّلت حين كانت الفقرة تحمل سؤالًا واحدًا، فنملأ
+  /// `question_id` بمعرّف الفقرة — وهو نفس ما يقرأه المحلّل الجديد للفقرات
+  /// القديمة، فتبقى النتائج السابقة مرتبطة بأسئلتها.
+  static Future<void> _migrateToV2(Database db) async {
+    final columns = await db.rawQuery('PRAGMA table_info(quiz_attempts)');
+    final hasQuestionId =
+        columns.any((column) => column['name'] == 'question_id');
+    if (!hasQuestionId) {
+      await db.execute(
+        "ALTER TABLE quiz_attempts ADD COLUMN question_id TEXT NOT NULL DEFAULT ''",
+      );
+    }
+    await db.execute(
+      "UPDATE quiz_attempts SET question_id = block_id WHERE question_id = ''",
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_attempts_question '
+      'ON quiz_attempts (block_id, question_id, answered_at)',
+    );
   }
 
   static const List<String> _userTables = [
@@ -141,6 +177,7 @@ class AppDatabase {
     CREATE TABLE quiz_attempts (
       id TEXT PRIMARY KEY,
       block_id TEXT NOT NULL,
+      question_id TEXT NOT NULL DEFAULT '',
       lesson_id TEXT NOT NULL,
       selected_option_id TEXT NOT NULL,
       is_correct INTEGER NOT NULL DEFAULT 0,
@@ -149,6 +186,8 @@ class AppDatabase {
     )
     ''',
     'CREATE INDEX idx_attempts_block ON quiz_attempts (block_id, answered_at)',
+    'CREATE INDEX idx_attempts_question '
+        'ON quiz_attempts (block_id, question_id, answered_at)',
     '''
     CREATE TABLE subject_levels (
       subject_id TEXT PRIMARY KEY,

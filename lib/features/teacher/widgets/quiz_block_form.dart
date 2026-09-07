@@ -4,22 +4,14 @@ import '../../../core/config/app_constants.dart';
 import '../../../core/l10n/ar_strings.dart';
 import '../../../data/models/lesson_block.dart';
 
-/// نتيجة نموذج الكويز.
+/// نتيجة نموذج الكويز: سؤال واحد أو أكثر داخل الفقرة نفسها.
 class QuizBlockFormResult {
-  const QuizBlockFormResult({
-    required this.question,
-    required this.options,
-    required this.correctOptionId,
-    this.explanation,
-  });
+  const QuizBlockFormResult({required this.questions});
 
-  final String question;
-  final List<QuizOption> options;
-  final String correctOptionId;
-  final String? explanation;
+  final List<QuizQuestion> questions;
 }
 
-/// نموذج كويز QCM: سؤال + عدة اختيارات، إجابة واحدة صحيحة.
+/// نموذج كويز QCM: عدة أسئلة، كل سؤال بعدة اختيارات وإجابة صحيحة واحدة.
 class QuizBlockForm extends StatefulWidget {
   const QuizBlockForm({this.block, super.key});
 
@@ -46,89 +38,65 @@ class QuizBlockForm extends StatefulWidget {
 
 class _QuizBlockFormState extends State<QuizBlockForm> {
   final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _questionController;
-  late final TextEditingController _explanationController;
-
-  /// المعرّفات ثابتة داخل النموذج (`o1`, `o2`, …) ليبقى ربط الإجابة الصحيحة
-  /// صحيحًا حتى بعد حذف خيار من الوسط.
-  final List<_OptionEntry> _options = [];
-  String? _correctOptionId;
+  final List<_QuestionEntry> _questions = [];
 
   @override
   void initState() {
     super.initState();
-    _questionController =
-        TextEditingController(text: widget.block?.question ?? '');
-    _explanationController =
-        TextEditingController(text: widget.block?.explanation ?? '');
-
-    final existing = widget.block?.options ?? const <QuizOption>[];
+    final existing = widget.block?.questions ?? const <QuizQuestion>[];
     if (existing.isEmpty) {
-      _options
-        ..add(_OptionEntry(id: 'o1'))
-        ..add(_OptionEntry(id: 'o2'));
+      _questions.add(_QuestionEntry.empty(_nextQuestionId()));
     } else {
-      for (final option in existing) {
-        _options.add(_OptionEntry(id: option.id, text: option.text));
+      for (final question in existing) {
+        _questions.add(_QuestionEntry.fromQuestion(question));
       }
-      _correctOptionId = widget.block?.correctOptionId;
     }
   }
 
   @override
   void dispose() {
-    _questionController.dispose();
-    _explanationController.dispose();
-    for (final option in _options) {
-      option.controller.dispose();
+    for (final question in _questions) {
+      question.dispose();
     }
     super.dispose();
   }
 
-  void _addOption() {
-    if (_options.length >= AppConstants.quizMaxOptions) return;
-    setState(() {
-      // معرّف لا يتصادم مع أي خيار قائم أو محذوف.
-      final maxId = _options
-          .map((option) => int.tryParse(option.id.replaceAll('o', '')) ?? 0)
-          .fold<int>(0, (a, b) => a > b ? a : b);
-      _options.add(_OptionEntry(id: 'o${maxId + 1}'));
-    });
+  /// معرّفات ثابتة (`q1`, `q2`…) لا تتصادم مع أسئلة محذوفة، حتى تبقى
+  /// محاولات التلاميذ مرتبطة بأسئلتها بعد أي تعديل.
+  String _nextQuestionId() {
+    var max = 0;
+    for (final entry in _questions) {
+      final numeric = int.tryParse(entry.id.replaceAll(RegExp(r'\D'), ''));
+      if (numeric != null && numeric > max) max = numeric;
+    }
+    return 'q${max + 1}';
   }
 
-  void _removeOption(int index) {
-    if (_options.length <= AppConstants.quizMinOptions) return;
-    setState(() {
-      final removed = _options.removeAt(index);
-      if (_correctOptionId == removed.id) _correctOptionId = null;
-      removed.controller.dispose();
-    });
+  void _addQuestion() {
+    setState(() => _questions.add(_QuestionEntry.empty(_nextQuestionId())));
+  }
+
+  void _removeQuestion(int index) {
+    if (_questions.length <= 1) return;
+    setState(() => _questions.removeAt(index).dispose());
   }
 
   void _submit() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    if (_correctOptionId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('حدّد الإجابة الصحيحة.')),
-      );
-      return;
+
+    for (final entry in _questions) {
+      if (entry.correctOptionId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('حدّد الإجابة الصحيحة لكل سؤال.')),
+        );
+        return;
+      }
     }
 
     Navigator.of(context).pop(
       QuizBlockFormResult(
-        question: _questionController.text.trim(),
-        options: _options
-            .map(
-              (option) => QuizOption(
-                id: option.id,
-                text: option.controller.text.trim(),
-              ),
-            )
-            .toList(growable: false),
-        correctOptionId: _correctOptionId!,
-        explanation: _explanationController.text.trim().isEmpty
-            ? null
-            : _explanationController.text.trim(),
+        questions:
+            _questions.map((entry) => entry.toQuestion()).toList(growable: false),
       ),
     );
   }
@@ -139,8 +107,11 @@ class _QuizBlockFormState extends State<QuizBlockForm> {
 
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
+          ),
           child: Form(
             key: _formKey,
             child: Column(
@@ -152,80 +123,41 @@ class _QuizBlockFormState extends State<QuizBlockForm> {
                   style: theme.textTheme.titleLarge,
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 24),
-                TextFormField(
-                  controller: _questionController,
-                  autofocus: true,
-                  maxLines: 3,
-                  minLines: 1,
-                  decoration: const InputDecoration(labelText: S.question),
-                  validator: (value) =>
-                      (value ?? '').trim().isEmpty ? 'نص السؤال مطلوب.' : null,
-                ),
-                const SizedBox(height: 20),
-                Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: Text(
-                    '${S.options} — اضغط الدائرة لتحديد الصحيحة',
-                    style: theme.textTheme.labelLarge,
+                const SizedBox(height: 4),
+                Text(
+                  S.quizFormHint,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
+                  textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 8),
-                // مجموعة اختيار واحدة: الدائرة المحدّدة = الإجابة الصحيحة.
-                RadioGroup<String>(
-                  groupValue: _correctOptionId,
-                  onChanged: (value) =>
-                      setState(() => _correctOptionId = value),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      for (var i = 0; i < _options.length; i++)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Row(
-                            children: [
-                              Radio<String>(value: _options[i].id),
-                              Expanded(
-                                child: TextFormField(
-                                  controller: _options[i].controller,
-                                  decoration: InputDecoration(
-                                    labelText: 'الخيار ${i + 1}',
-                                  ),
-                                  validator: (value) =>
-                                      (value ?? '').trim().isEmpty
-                                          ? 'لا يمكن ترك خيار فارغًا.'
-                                          : null,
-                                ),
-                              ),
-                              IconButton(
-                                onPressed: _options.length <=
-                                        AppConstants.quizMinOptions
-                                    ? null
-                                    : () => _removeOption(i),
-                                icon: const Icon(Icons.remove_circle_outline),
-                              ),
-                            ],
+                const SizedBox(height: 16),
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        for (var i = 0; i < _questions.length; i++)
+                          _QuestionCard(
+                            key: ValueKey(_questions[i].id),
+                            index: i,
+                            entry: _questions[i],
+                            canRemove: _questions.length > 1,
+                            onRemove: () => _removeQuestion(i),
+                            onChanged: () => setState(() {}),
+                          ),
+                        Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: TextButton.icon(
+                            onPressed: _addQuestion,
+                            icon: const Icon(Icons.add),
+                            label: const Text(S.addQuestion),
                           ),
                         ),
-                    ],
-                  ),
-                ),
-                if (_options.length < AppConstants.quizMaxOptions)
-                  Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    child: TextButton.icon(
-                      onPressed: _addOption,
-                      icon: const Icon(Icons.add),
-                      label: const Text('إضافة خيار'),
+                      ],
                     ),
                   ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _explanationController,
-                  maxLines: 2,
-                  decoration: const InputDecoration(labelText: S.explanation),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 12),
                 FilledButton(onPressed: _submit, child: const Text(S.save)),
               ],
             ),
@@ -233,6 +165,215 @@ class _QuizBlockFormState extends State<QuizBlockForm> {
         ),
       ),
     );
+  }
+}
+
+class _QuestionCard extends StatelessWidget {
+  const _QuestionCard({
+    required this.index,
+    required this.entry,
+    required this.canRemove,
+    required this.onRemove,
+    required this.onChanged,
+    super.key,
+  });
+
+  final int index;
+  final _QuestionEntry entry;
+  final bool canRemove;
+  final VoidCallback onRemove;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Text(
+                  '${S.question} ${index + 1}',
+                  style: theme.textTheme.labelLarge,
+                ),
+                const Spacer(),
+                if (canRemove)
+                  IconButton(
+                    tooltip: S.delete,
+                    onPressed: onRemove,
+                    icon: const Icon(Icons.delete_outline),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: entry.questionController,
+              maxLines: 3,
+              minLines: 1,
+              decoration: const InputDecoration(labelText: S.question),
+              validator: (value) =>
+                  (value ?? '').trim().isEmpty ? 'نص السؤال مطلوب.' : null,
+            ),
+            const SizedBox(height: 16),
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: Text(
+                '${S.options} — اضغط الدائرة لتحديد الصحيحة',
+                style: theme.textTheme.labelMedium,
+              ),
+            ),
+            const SizedBox(height: 8),
+            RadioGroup<String>(
+              groupValue: entry.correctOptionId,
+              onChanged: (value) {
+                entry.correctOptionId = value;
+                onChanged();
+              },
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var i = 0; i < entry.options.length; i++)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          Radio<String>(value: entry.options[i].id),
+                          Expanded(
+                            child: TextFormField(
+                              controller: entry.options[i].controller,
+                              decoration: InputDecoration(
+                                labelText: 'الخيار ${i + 1}',
+                                isDense: true,
+                              ),
+                              validator: (value) => (value ?? '').trim().isEmpty
+                                  ? 'لا يمكن ترك خيار فارغًا.'
+                                  : null,
+                            ),
+                          ),
+                          IconButton(
+                            onPressed:
+                                entry.options.length <= AppConstants.quizMinOptions
+                                    ? null
+                                    : () {
+                                        entry.removeOption(i);
+                                        onChanged();
+                                      },
+                            icon: const Icon(Icons.remove_circle_outline),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            if (entry.options.length < AppConstants.quizMaxOptions)
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: TextButton.icon(
+                  onPressed: () {
+                    entry.addOption();
+                    onChanged();
+                  },
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('إضافة خيار'),
+                ),
+              ),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: entry.explanationController,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                labelText: S.explanation,
+                isDense: true,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// حالة تحرير سؤال واحد.
+class _QuestionEntry {
+  _QuestionEntry({
+    required this.id,
+    required String question,
+    required String explanation,
+    required this.options,
+    this.correctOptionId,
+  })  : questionController = TextEditingController(text: question),
+        explanationController = TextEditingController(text: explanation);
+
+  factory _QuestionEntry.empty(String id) => _QuestionEntry(
+        id: id,
+        question: '',
+        explanation: '',
+        options: [_OptionEntry(id: 'o1'), _OptionEntry(id: 'o2')],
+      );
+
+  factory _QuestionEntry.fromQuestion(QuizQuestion question) => _QuestionEntry(
+        id: question.id,
+        question: question.question,
+        explanation: question.explanation ?? '',
+        options: question.options
+            .map((option) => _OptionEntry(id: option.id, text: option.text))
+            .toList(),
+        correctOptionId: question.correctOptionId,
+      );
+
+  final String id;
+  final TextEditingController questionController;
+  final TextEditingController explanationController;
+  final List<_OptionEntry> options;
+  String? correctOptionId;
+
+  void addOption() {
+    if (options.length >= AppConstants.quizMaxOptions) return;
+    var max = 0;
+    for (final option in options) {
+      final numeric = int.tryParse(option.id.replaceAll(RegExp(r'\D'), ''));
+      if (numeric != null && numeric > max) max = numeric;
+    }
+    options.add(_OptionEntry(id: 'o${max + 1}'));
+  }
+
+  void removeOption(int index) {
+    if (options.length <= AppConstants.quizMinOptions) return;
+    final removed = options.removeAt(index);
+    if (correctOptionId == removed.id) correctOptionId = null;
+    removed.controller.dispose();
+  }
+
+  QuizQuestion toQuestion() {
+    final explanation = explanationController.text.trim();
+    return QuizQuestion(
+      id: id,
+      question: questionController.text.trim(),
+      options: options
+          .map(
+            (option) => QuizOption(
+              id: option.id,
+              text: option.controller.text.trim(),
+            ),
+          )
+          .toList(growable: false),
+      correctOptionId: correctOptionId,
+      explanation: explanation.isEmpty ? null : explanation,
+    );
+  }
+
+  void dispose() {
+    questionController.dispose();
+    explanationController.dispose();
+    for (final option in options) {
+      option.controller.dispose();
+    }
   }
 }
 

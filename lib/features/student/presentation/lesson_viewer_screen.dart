@@ -251,7 +251,12 @@ class _BlockContent extends StatelessWidget {
       VideoBlock() => VideoBlockView(block: block),
       QuizBlock() => QuizBlockView(
           block: block,
-          previousAttempt: attempts[block.id],
+          previousAttempts: {
+            for (final question in block.questions)
+              if (attempts[QuizAttempt.keyOf(block.id, question.id)]
+                  case final attempt?)
+                question.id: attempt,
+          },
         ),
     };
   }

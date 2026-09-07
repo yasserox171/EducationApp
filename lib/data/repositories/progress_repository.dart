@@ -106,17 +106,22 @@ class ProgressRepository {
 
   // ------------------------------------------------------------- الكويز
 
-  /// تسجيل إجابة كويز. التصحيح فوري ومحلي (لا ينتظر الخادم).
+  /// تسجيل إجابة سؤال واحد.
+  ///
+  /// التصحيح يُحسب محليًا ويُخزَّن، لكن **لا يُعرض للتلميذ** إلا بعد إجابته
+  /// على كل أسئلة الفقرة — العرض مسؤولية الواجهة لا المستودع.
   Future<QuizAttempt> answerQuiz({
     required QuizBlock block,
+    required QuizQuestion question,
     required String selectedOptionId,
   }) async {
     final attempt = QuizAttempt(
       id: _uuid.v4(),
       blockId: block.id,
+      questionId: question.id,
       lessonId: block.lessonId,
       selectedOptionId: selectedOptionId,
-      isCorrect: block.isCorrect(selectedOptionId),
+      isCorrect: question.isCorrect(selectedOptionId),
       answeredAt: DateTime.now().toUtc(),
     );
 
@@ -134,8 +139,13 @@ class ProgressRepository {
     return attempt;
   }
 
+  /// آخر إجابة لكل سؤال في الدرس (المفتاح `QuizAttempt.keyOf`).
   Future<Map<String, QuizAttempt>> attemptsForLesson(String lessonId) =>
       _dao.lastAttemptsForLesson(lessonId);
+
+  /// آخر إجابة لكل سؤال داخل فقرة واحدة (المفتاح: معرّف السؤال).
+  Future<Map<String, QuizAttempt>> attemptsForBlock(String blockId) =>
+      _dao.lastAttemptsForBlock(blockId);
 
   // -------------------------------------------------------- مستوى المادة
 
