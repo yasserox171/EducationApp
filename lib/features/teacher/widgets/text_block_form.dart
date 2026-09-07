@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/l10n/ar_strings.dart';
+import '../../../core/utils/latex_parser.dart';
 import '../../../data/models/lesson_block.dart';
+import '../../shared/widgets/math_text.dart';
+import 'math_toolbar.dart';
 
 /// نتيجة نموذج الفقرة النصية.
 class TextBlockFormResult {
@@ -47,10 +50,15 @@ class _TextBlockFormState extends State<TextBlockForm> {
     _headingController =
         TextEditingController(text: widget.block?.heading ?? '');
     _bodyController = TextEditingController(text: widget.block?.body ?? '');
+    // المعاينة الحية تتبع كل حرف يُكتب.
+    _bodyController.addListener(_onBodyChanged);
   }
+
+  void _onBodyChanged() => setState(() {});
 
   @override
   void dispose() {
+    _bodyController.removeListener(_onBodyChanged);
     _headingController.dispose();
     _bodyController.dispose();
     super.dispose();
@@ -71,12 +79,17 @@ class _TextBlockFormState extends State<TextBlockForm> {
   Widget build(BuildContext context) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.85,
+            ),
+            child: SingleChildScrollView(
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
                 Text(
                   widget.block == null ? S.addTextBlock : S.edit,
                   style: Theme.of(context).textTheme.titleLarge,
@@ -91,6 +104,8 @@ class _TextBlockFormState extends State<TextBlockForm> {
                   ),
                 ),
                 const SizedBox(height: 16),
+                MathToolbar(controller: _bodyController),
+                const SizedBox(height: 8),
                 TextFormField(
                   controller: _bodyController,
                   autofocus: true,
@@ -100,14 +115,63 @@ class _TextBlockFormState extends State<TextBlockForm> {
                   validator: (value) =>
                       (value ?? '').trim().isEmpty ? 'نص الفقرة مطلوب.' : null,
                 ),
-                const SizedBox(height: 24),
-                FilledButton(
-                  onPressed: _submit,
-                  child: const Text(S.save),
+                if (hasLatex(_bodyController.text)) ...[
+                  const SizedBox(height: 16),
+                  _EquationPreview(source: _bodyController.text),
+                ],
+                    const SizedBox(height: 24),
+                    FilledButton(
+                      onPressed: _submit,
+                      child: const Text(S.save),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
       );
+}
+
+/// معاينة حية للفقرة كما سيراها التلميذ، تتحدّث مع كل حرف.
+class _EquationPreview extends StatelessWidget {
+  const _EquationPreview({required this.source});
+
+  final String source;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.visibility_outlined,
+                size: 16,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 6),
+              Text(S.livePreview, style: theme.textTheme.labelMedium),
+            ],
+          ),
+          const SizedBox(height: 12),
+          MathText(
+            source,
+            style: theme.textTheme.bodyLarge?.copyWith(height: 1.8),
+          ),
+        ],
+      ),
+    );
+  }
 }

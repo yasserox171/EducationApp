@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../data/models/lesson_block.dart';
+import '../../shared/widgets/math_text.dart';
 
-/// عرض فقرة نصية: عنوان اختياري + نص الفقرة.
+/// عرض فقرة نصية: عنوان اختياري + نص قد يتخلّله معادلات رياضية.
 class TextBlockView extends StatelessWidget {
   const TextBlockView({required this.block, super.key});
 
@@ -15,7 +16,7 @@ class TextBlockView extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (block.heading != null && block.heading!.trim().isNotEmpty) ...[
-          Text(
+          MathText(
             block.heading!,
             style: theme.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.bold,
@@ -23,7 +24,7 @@ class TextBlockView extends StatelessWidget {
           ),
           const SizedBox(height: 16),
         ],
-        SelectableText(
+        MathText(
           block.body,
           style: theme.textTheme.bodyLarge?.copyWith(height: 1.8),
         ),

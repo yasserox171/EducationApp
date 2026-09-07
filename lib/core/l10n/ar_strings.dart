@@ -67,6 +67,9 @@ class S {
   static const reorderLessons = 'إعادة ترتيب الدروس';
   static const lessonEditor = 'محرّر الدرس';
   static const addTextBlock = 'إضافة فقرة نصية';
+  static const insertEquation = 'إدراج معادلة';
+  static const livePreview = 'معاينة كما يراها التلميذ';
+  static const equationHint = r'اكتب الصيغة بين $$ … $$';
   static const addVideoBlock = 'إضافة فيديو';
   static const addQuizBlock = 'إضافة كويز';
   static const uploading = 'جارٍ الرفع…';

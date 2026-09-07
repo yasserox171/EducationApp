@@ -48,6 +48,7 @@ dependencies:
   # يجب أن يطابق ما يثبّته flutter_localizations.
   intl: ^0.20.3
   collection: ^1.18.0
+  flutter_math_fork: ^0.7.4
 dev_dependencies:
   flutter_test:
     sdk: flutter
