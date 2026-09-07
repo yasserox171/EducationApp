@@ -106,6 +106,7 @@ sealed class LessonBlock {
           thumbnailUrl: data['thumbnail_url'] as String?,
           durationSeconds: (data['duration_seconds'] as num?)?.toInt() ?? 0,
           sizeBytes: (data['size_bytes'] as num?)?.toInt() ?? 0,
+          attachments: BlockAttachment.listFrom(data['attachments']),
         );
       case BlockType.quiz:
         return QuizBlock(
@@ -165,6 +166,7 @@ class VideoBlock extends LessonBlock {
     this.thumbnailUrl,
     this.durationSeconds = 0,
     this.sizeBytes = 0,
+    this.attachments = const <BlockAttachment>[],
     super.updatedAt,
   });
 
@@ -173,6 +175,9 @@ class VideoBlock extends LessonBlock {
   final String? thumbnailUrl;
   final int durationSeconds;
   final int sizeBytes;
+
+  /// ملفات PDF مرفقة بالفيديو (ملخّص، تمارين…). تُحمَّل مع الدرس.
+  final List<BlockAttachment> attachments;
 
   @override
   BlockType get type => BlockType.video;
@@ -184,7 +189,54 @@ class VideoBlock extends LessonBlock {
         'thumbnail_url': thumbnailUrl,
         'duration_seconds': durationSeconds,
         'size_bytes': sizeBytes,
+        'attachments':
+            attachments.map((e) => e.toJson()).toList(growable: false),
       };
+}
+
+/// ملف مرفق بفقرة (حاليًا PDF مرفق بفقرة فيديو).
+class BlockAttachment {
+  const BlockAttachment({
+    required this.id,
+    required this.fileName,
+    required this.url,
+    this.sizeBytes = 0,
+    this.createdAt,
+  });
+
+  final String id;
+  final String fileName;
+  final String url;
+  final int sizeBytes;
+  final DateTime? createdAt;
+
+  factory BlockAttachment.fromJson(Map<String, dynamic> json) =>
+      BlockAttachment(
+        id: json['id'].toString(),
+        fileName: (json['file_name'] ?? json['name'] ?? 'ملف.pdf') as String,
+        url: (json['url'] ?? json['file_path'] ?? '') as String,
+        sizeBytes: (json['file_size'] ?? json['size_bytes'] as num?) is num
+            ? ((json['file_size'] ?? json['size_bytes']) as num).toInt()
+            : 0,
+        createdAt: DateTime.tryParse(json['created_at']?.toString() ?? ''),
+      );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'file_name': fileName,
+        'url': url,
+        'file_size': sizeBytes,
+        'created_at': createdAt?.toIso8601String(),
+      };
+
+  static List<BlockAttachment> listFrom(Object? raw) {
+    if (raw is! List) return const <BlockAttachment>[];
+    return raw
+        .whereType<Map>()
+        .map((e) => BlockAttachment.fromJson(Map<String, dynamic>.from(e)))
+        .where((attachment) => attachment.url.isNotEmpty)
+        .toList(growable: false);
+  }
 }
 
 /// خيار واحد في سؤال الكويز.

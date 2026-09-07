@@ -14,11 +14,15 @@ final lessonDownloadProvider =
   },
 );
 
-/// المسار المحلي لفيديو فقرة (`null` = غير محمَّل، شغّله من الشبكة).
-final localVideoPathProvider =
+/// المسار المحلي لملف محمَّل: معرّف الفقرة للفيديو، ومعرّف المرفق لـ PDF.
+/// `null` يعني غير محمَّل.
+final localFilePathProvider =
     FutureProvider.autoDispose.family<String?, String>(
-  (ref, blockId) => ref.watch(downloadRepositoryProvider).localPathFor(blockId),
+  (ref, fileId) => ref.watch(downloadRepositoryProvider).localPathFor(fileId),
 );
+
+/// اسم قديم أوضح للفيديو تحديدًا — يشير إلى نفس المزوّد.
+final localVideoPathProvider = localFilePathProvider;
 
 /// إجمالي المساحة التي تشغلها الدروس المحمَّلة.
 final usedStorageProvider = FutureProvider.autoDispose<int>(

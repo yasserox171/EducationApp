@@ -11,6 +11,7 @@ import '../../shared/providers/content_providers.dart';
 import '../../shared/widgets/async_view.dart';
 import '../../shared/widgets/status_banner.dart';
 import '../providers/teacher_providers.dart';
+import '../widgets/attachments_sheet.dart';
 import '../widgets/quiz_block_form.dart';
 import '../widgets/text_block_form.dart';
 import '../widgets/video_upload_sheet.dart';
@@ -99,13 +100,11 @@ class LessonEditorScreen extends ConsumerWidget {
         });
 
       case VideoBlock():
-        // تغيير الفيديو نفسه = حذف الفقرة وإضافة أخرى (رفع ملف جديد).
+        // الفيديو نفسه لا يُستبدل (احذف الفقرة وأضف غيرها)، لكن مرفقاته
+        // تُدار من هنا.
         if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('لتغيير الفيديو احذف الفقرة وأضف فيديو جديدًا.'),
-          ),
-        );
+        final changed = await AttachmentsSheet.show(context, block: block);
+        if (changed ?? false) _refresh(ref);
     }
   }
 

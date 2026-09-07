@@ -75,13 +75,32 @@ class LessonDownload {
       );
 }
 
-/// ملف وسائط واحد (فيديو فقرة) على الجهاز.
+/// نوع الملف المحمَّل على الجهاز.
+enum MediaKind {
+  video('video'),
+  pdf('pdf');
+
+  const MediaKind(this.wire);
+
+  final String wire;
+
+  static MediaKind fromWire(String? value) =>
+      value == 'pdf' ? MediaKind.pdf : MediaKind.video;
+}
+
+/// ملف واحد محمَّل على الجهاز: فيديو فقرة أو مرفق PDF.
+///
+/// `fileId` هو معرّف الفقرة لملفات الفيديو، ومعرّف المرفق لملفات PDF —
+/// فالفقرة الواحدة قد تحمل عدة ملفات.
 class MediaFile {
   const MediaFile({
+    required this.fileId,
     required this.blockId,
     required this.lessonId,
     required this.remoteUrl,
     required this.status,
+    this.kind = MediaKind.video,
+    this.fileName,
     this.localPath,
     this.bytesTotal = 0,
     this.bytesDownloaded = 0,
@@ -89,8 +108,11 @@ class MediaFile {
     required this.updatedAt,
   });
 
+  final String fileId;
   final String blockId;
   final String lessonId;
+  final MediaKind kind;
+  final String? fileName;
   final String remoteUrl;
   final String? localPath;
   final int bytesTotal;
@@ -102,8 +124,11 @@ class MediaFile {
   bool get isReady => status == DownloadStatus.completed && localPath != null;
 
   Map<String, Object?> toDbRow() => {
+        'file_id': fileId,
         'block_id': blockId,
         'lesson_id': lessonId,
+        'kind': kind.wire,
+        'file_name': fileName,
         'remote_url': remoteUrl,
         'local_path': localPath,
         'bytes_total': bytesTotal,
@@ -114,8 +139,11 @@ class MediaFile {
       };
 
   factory MediaFile.fromDbRow(Map<String, Object?> row) => MediaFile(
+        fileId: row['file_id']! as String,
         blockId: row['block_id']! as String,
         lessonId: row['lesson_id']! as String,
+        kind: MediaKind.fromWire(row['kind'] as String?),
+        fileName: row['file_name'] as String?,
         remoteUrl: row['remote_url']! as String,
         localPath: row['local_path'] as String?,
         bytesTotal: (row['bytes_total'] as int?) ?? 0,

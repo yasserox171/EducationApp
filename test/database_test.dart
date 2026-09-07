@@ -2,6 +2,7 @@ import 'package:education_app/core/storage/app_database.dart';
 import 'package:education_app/core/storage/dao/content_dao.dart';
 import 'package:education_app/core/storage/dao/outbox_dao.dart';
 import 'package:education_app/core/storage/dao/progress_dao.dart';
+import 'package:education_app/data/models/download_state.dart';
 import 'package:education_app/data/models/enums.dart';
 import 'package:education_app/data/models/lesson.dart';
 import 'package:education_app/data/models/lesson_block.dart';
@@ -467,6 +468,56 @@ void main() {
       final restored = QuizAttempt.fromDbRow(rows.single);
       expect(restored.questionId, 'b-legacy');
       expect(restored.isCorrect, isTrue);
+    });
+
+    test('ملفات الوسائط القديمة تصبح ملفات فيديو بمعرّف فقرتها', () async {
+      final dir = Directory.systemTemp.createTempSync('edu_media_migration_');
+      addTearDown(() => dir.deleteSync(recursive: true));
+
+      final legacy = await databaseFactory.openDatabase(
+        p.join(dir.path, 'legacy.db'),
+        options: OpenDatabaseOptions(
+          version: 2,
+          onCreate: (db, version) async {
+            await db.execute('''
+              CREATE TABLE media_files (
+                block_id TEXT PRIMARY KEY,
+                lesson_id TEXT NOT NULL,
+                remote_url TEXT NOT NULL,
+                local_path TEXT,
+                bytes_total INTEGER NOT NULL DEFAULT 0,
+                bytes_downloaded INTEGER NOT NULL DEFAULT 0,
+                status TEXT NOT NULL DEFAULT 'none',
+                error TEXT,
+                updated_at TEXT NOT NULL
+              )
+            ''');
+            await db.insert('media_files', {
+              'block_id': 'b-video',
+              'lesson_id': 'l1',
+              'remote_url': 'https://x/a.mp4',
+              'local_path': '/tmp/a.mp4',
+              'bytes_total': 100,
+              'bytes_downloaded': 100,
+              'status': 'completed',
+              'updated_at': DateTime.utc(2026, 1, 1).toIso8601String(),
+            });
+          },
+        ),
+      );
+      addTearDown(legacy.close);
+
+      await AppDatabase.debugMigrateToV3(legacy);
+
+      final rows = await legacy.query('media_files');
+      final file = MediaFile.fromDbRow(rows.single);
+
+      // الدرس المحمَّل يبقى محمَّلًا: لا إعادة تنزيل بعد الترقية.
+      expect(file.fileId, 'b-video');
+      expect(file.blockId, 'b-video');
+      expect(file.kind, MediaKind.video);
+      expect(file.isReady, isTrue);
+      expect(file.localPath, '/tmp/a.mp4');
     });
 
     test('الترقية لا تكرّر العمود إن طُبّقت مرتين', () async {

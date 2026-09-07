@@ -93,6 +93,12 @@ class Env {
 
   static int get maxVideoUploadMb => _readInt('MAX_VIDEO_UPLOAD_MB', 300);
 
+  /// الحد الأقصى لحجم مرفق PDF (بالبايت).
+  static int get maxAttachmentBytes =>
+      _readInt('MAX_ATTACHMENT_MB', 20) * 1024 * 1024;
+
+  static int get maxAttachmentMb => _readInt('MAX_ATTACHMENT_MB', 20);
+
   /// الحد الأقصى الإجمالي للملفات المحمّلة على الجهاز (بالبايت).
   static int get maxOfflineStorageBytes =>
       _readInt('MAX_OFFLINE_STORAGE_MB', 4096) * 1024 * 1024;

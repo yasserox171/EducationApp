@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 
 import '../../core/error/app_exception.dart';
 import '../../core/network/network_info.dart';
+import '../../core/utils/logger.dart';
 import '../../core/storage/dao/content_dao.dart';
 import '../models/enums.dart';
 import '../models/lesson.dart';
@@ -226,6 +227,66 @@ class TeacherRepository {
   /// شكل بيانات فقرة الكويز المتفق عليه مع الخادم.
   static Map<String, dynamic> quizDataOf(List<QuizQuestion> questions) => {
         'questions': questions.map((e) => e.toJson()).toList(growable: false),
+      };
+
+  /// إرفاق ملف PDF بفقرة فيديو: يُرفع الملف ثم يُضاف إلى بيانات الفقرة.
+  Future<LessonBlock> attachPdf({
+    required VideoBlock block,
+    required File file,
+    void Function(double progress)? onProgress,
+    CancelToken? cancelToken,
+  }) async {
+    await _requireOnline();
+    final uploaded = await _uploadApi.uploadAttachment(
+      blockId: block.id,
+      file: file,
+      onProgress: onProgress,
+      cancelToken: cancelToken,
+    );
+
+    final attachments = [...block.attachments, uploaded];
+    return _contentApi.updateBlock(
+      blockId: block.id,
+      data: _videoDataOf(block, attachments),
+    );
+  }
+
+  /// إزالة مرفق من فقرة فيديو.
+  Future<LessonBlock> removeAttachment({
+    required VideoBlock block,
+    required String attachmentId,
+  }) async {
+    await _requireOnline();
+    final attachments = block.attachments
+        .where((attachment) => attachment.id != attachmentId)
+        .toList(growable: false);
+
+    final updated = await _contentApi.updateBlock(
+      blockId: block.id,
+      data: _videoDataOf(block, attachments),
+    );
+    try {
+      await _uploadApi.deleteAttachment(attachmentId);
+    } on AppException catch (error) {
+      // الفقرة تحدّثت فعلًا؛ فشل حذف الملف من التخزين ليس سببًا لإفشال
+      // العملية أمام الأستاذ.
+      Log.d('TeacherRepository', 'تعذّر حذف المرفق: ${error.message}');
+    }
+    return updated;
+  }
+
+  static Map<String, dynamic> _videoDataOf(
+    VideoBlock block,
+    List<BlockAttachment> attachments,
+  ) =>
+      {
+        'title': block.title,
+        'url': block.remoteUrl,
+        'thumbnail_url': block.thumbnailUrl,
+        'duration_seconds': block.durationSeconds,
+        'size_bytes': block.sizeBytes,
+        'attachments':
+            attachments.map((e) => e.toJson()).toList(growable: false),
       };
 
   Future<LessonBlock> updateBlock({

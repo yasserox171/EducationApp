@@ -15,7 +15,9 @@ class AppDatabase {
 
   /// 1: الإصدار الأول.
   /// 2: `quiz_attempts.question_id` — فقرة الكويز صارت تحمل عدة أسئلة.
-  static const int schemaVersion = 2;
+  /// 3: `media_files` صار مفتاحه `file_id` بدل `block_id` — الفقرة الواحدة
+  ///    قد تحمل عدة ملفات (فيديو + مرفقات PDF).
+  static const int schemaVersion = 3;
 
   static Future<AppDatabase> open({String? overridePath}) async {
     final path = overridePath ?? p.join(await getDatabasesPath(), fileName);
@@ -37,6 +39,9 @@ class AppDatabase {
         // إلى الإصدار الحالي دون فقدان بيانات التلميذ.
         if (oldVersion < 2) {
           await _migrateToV2(db);
+        }
+        if (oldVersion < 3) {
+          await _migrateToV3(db);
         }
       },
     );
@@ -82,6 +87,65 @@ class AppDatabase {
       'ON quiz_attempts (block_id, question_id, answered_at)',
     );
   }
+
+  @visibleForTesting
+  static Future<void> debugMigrateToV3(Database db) => _migrateToV3(db);
+
+  /// إعادة بناء `media_files` بمفتاح `file_id`.
+  ///
+  /// كان المفتاح `block_id` (ملف واحد لكل فقرة)، وصار بإمكان فقرة الفيديو
+  /// أن تحمل مرفقات PDF أيضًا. SQLite لا يغيّر المفتاح الأساسي، فننشئ
+  /// جدولًا جديدًا وننسخ إليه: كل صف قديم يصبح ملف فيديو معرّفه معرّف فقرته،
+  /// فتبقى الدروس المحمَّلة على الأجهزة صالحة بلا إعادة تحميل.
+  static Future<void> _migrateToV3(Database db) async {
+    final tables = await db.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='media_files'",
+    );
+    if (tables.isEmpty) return;
+
+    final columns = await db.rawQuery('PRAGMA table_info(media_files)');
+    if (columns.any((column) => column['name'] == 'file_id')) return;
+
+    await db.transaction((txn) async {
+      await txn.execute('ALTER TABLE media_files RENAME TO media_files_old');
+      await txn.execute(_createMediaFilesTable);
+      await txn.execute('''
+        INSERT INTO media_files
+          (file_id, block_id, lesson_id, kind, file_name, remote_url,
+           local_path, bytes_total, bytes_downloaded, status, error, updated_at)
+        SELECT block_id, block_id, lesson_id, 'video', NULL, remote_url,
+               local_path, bytes_total, bytes_downloaded, status, error,
+               updated_at
+        FROM media_files_old
+      ''');
+      await txn.execute('DROP TABLE media_files_old');
+      await txn.execute(_createMediaLessonIndex);
+      await txn.execute(_createMediaBlockIndex);
+    });
+  }
+
+  static const String _createMediaFilesTable = '''
+    CREATE TABLE media_files (
+      file_id TEXT PRIMARY KEY,
+      block_id TEXT NOT NULL,
+      lesson_id TEXT NOT NULL,
+      kind TEXT NOT NULL DEFAULT 'video',
+      file_name TEXT,
+      remote_url TEXT NOT NULL,
+      local_path TEXT,
+      bytes_total INTEGER NOT NULL DEFAULT 0,
+      bytes_downloaded INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'none',
+      error TEXT,
+      updated_at TEXT NOT NULL
+    )
+  ''';
+
+  static const String _createMediaLessonIndex =
+      'CREATE INDEX IF NOT EXISTS idx_media_lesson ON media_files (lesson_id)';
+
+  static const String _createMediaBlockIndex =
+      'CREATE INDEX IF NOT EXISTS idx_media_block ON media_files (block_id)';
 
   static const List<String> _userTables = [
     'subjects',
@@ -135,20 +199,9 @@ class AppDatabase {
     )
     ''',
     'CREATE INDEX idx_blocks_lesson ON blocks (lesson_id, position)',
-    '''
-    CREATE TABLE media_files (
-      block_id TEXT PRIMARY KEY,
-      lesson_id TEXT NOT NULL,
-      remote_url TEXT NOT NULL,
-      local_path TEXT,
-      bytes_total INTEGER NOT NULL DEFAULT 0,
-      bytes_downloaded INTEGER NOT NULL DEFAULT 0,
-      status TEXT NOT NULL DEFAULT 'none',
-      error TEXT,
-      updated_at TEXT NOT NULL
-    )
-    ''',
-    'CREATE INDEX idx_media_lesson ON media_files (lesson_id)',
+    _createMediaFilesTable,
+    _createMediaLessonIndex,
+    _createMediaBlockIndex,
     '''
     CREATE TABLE lesson_downloads (
       lesson_id TEXT PRIMARY KEY,

@@ -74,15 +74,26 @@ class DownloadDao {
 
   // --------------------------------------------------------- ملفات الوسائط
 
-  Future<MediaFile?> getMediaFile(String blockId) async {
+  /// ملف واحد بمعرّفه (معرّف الفقرة للفيديو، معرّف المرفق لـ PDF).
+  Future<MediaFile?> getMediaFile(String fileId) async {
     final rows = await _db.query(
       'media_files',
-      where: 'block_id = ?',
-      whereArgs: [blockId],
+      where: 'file_id = ?',
+      whereArgs: [fileId],
       limit: 1,
     );
     if (rows.isEmpty) return null;
     return MediaFile.fromDbRow(rows.first);
+  }
+
+  /// كل ملفات فقرة واحدة (الفيديو ومرفقاته).
+  Future<List<MediaFile>> getMediaFilesForBlock(String blockId) async {
+    final rows = await _db.query(
+      'media_files',
+      where: 'block_id = ?',
+      whereArgs: [blockId],
+    );
+    return rows.map(MediaFile.fromDbRow).toList(growable: false);
   }
 
   Future<List<MediaFile>> getMediaFilesForLesson(String lessonId) async {
@@ -104,6 +115,12 @@ class DownloadDao {
         'media_files',
         where: 'lesson_id = ?',
         whereArgs: [lessonId],
+      );
+
+  Future<void> deleteMediaFile(String fileId) => _db.delete(
+        'media_files',
+        where: 'file_id = ?',
+        whereArgs: [fileId],
       );
 
   /// إجمالي البايتات المسجَّلة كمحمَّلة (لعرضه في الإعدادات).

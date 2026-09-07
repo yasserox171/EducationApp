@@ -11,6 +11,7 @@ import '../../../core/l10n/ar_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../data/models/lesson_block.dart';
 import '../../shared/providers/download_providers.dart';
+import 'attachment_list.dart';
 
 /// عرض فقرة فيديو.
 ///
@@ -76,6 +77,8 @@ class VideoBlockView extends ConsumerWidget {
             ],
           ],
         ),
+        // الملفات المرفقة تحت المشغّل مباشرة.
+        AttachmentList(block: block),
       ],
     );
   }

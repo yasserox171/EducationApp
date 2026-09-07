@@ -321,6 +321,12 @@ class DemoApiClient extends ApiClient {
       throw const NotFoundException();
     }
 
+    // حذف مرفق من التخزين: في الديمو لا ملفات حقيقية، فالعملية تنجح بلا أثر
+    // (المرفق نفسه أُزيل من بيانات الفقرة عبر PUT /blocks/{id}).
+    if (segments.length == 2 && segments[0] == 'attachments') {
+      return;
+    }
+
     throw NotFoundException(details: 'DELETE $path');
   }
 

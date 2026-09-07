@@ -178,6 +178,18 @@ void main() {
       expect(video.remoteUrl, startsWith('https://'));
       expect(video.sizeBytes, greaterThan(0));
     });
+
+    test('بيانات التجربة تحتوي مرفقات PDF صالحة', () async {
+      final blocks = await contentApi.fetchBlocks('l-math-1');
+      final video = blocks.whereType<VideoBlock>().first;
+
+      expect(video.attachments.length, 2);
+      for (final attachment in video.attachments) {
+        expect(attachment.url, startsWith('https://'));
+        expect(attachment.fileName, endsWith('.pdf'));
+        expect(attachment.sizeBytes, greaterThan(0));
+      }
+    });
   });
 
   group('عمليات الأستاذ', () {

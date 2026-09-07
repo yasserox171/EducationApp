@@ -38,14 +38,15 @@ class MediaStore {
     return dir;
   }
 
-  /// مسار الملف النهائي لفقرة فيديو.
+  /// مسار الملف النهائي داخل مجلد الدرس.
+  /// `fileId` هو معرّف الفقرة لملفات الفيديو ومعرّف المرفق لملفات PDF.
   Future<String> filePathFor({
     required String lessonId,
-    required String blockId,
+    required String fileId,
     required String remoteUrl,
   }) async {
     final dir = await lessonDirectory(lessonId);
-    return p.join(dir.path, '$blockId${_extensionOf(remoteUrl)}');
+    return p.join(dir.path, '$fileId${_extensionOf(remoteUrl)}');
   }
 
   /// مسار مؤقّت أثناء التحميل — يُعاد تسميته عند الاكتمال حتى لا يُعتبر

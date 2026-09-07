@@ -126,6 +126,10 @@ class S {
       'سيتم حذف ملفات هذا الدرس من الجهاز لتوفير المساحة. النصوص تبقى متاحة.';
   static const downloadNeedsInternet = 'التحميل يحتاج اتصالًا بالإنترنت.';
   static const storageUsed = 'المساحة المستعملة';
+  static const attachments = 'الملفات المرفقة';
+  static const downloadedOnDevice = 'محمّل على الجهاز';
+  static const addPdf = 'إضافة PDF';
+  static const noAttachments = 'لا ملفات مرفقة.';
   static const deleteAllDownloads = 'حذف كل الدروس المحمَّلة';
 
   // ------------------------------------------------------------- المزامنة

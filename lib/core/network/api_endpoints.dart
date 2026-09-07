@@ -32,6 +32,13 @@ class ApiEndpoints {
   // -------------------------------------------------------------- الرفع
   static const String uploadVideo = '/uploads/video';
 
+  /// رفع مرفق PDF لفقرة فيديو (multipart).
+  static String blockAttachments(String blockId) =>
+      '/blocks/$blockId/attachments';
+
+  static String attachment(String attachmentId) =>
+      '/attachments/$attachmentId';
+
   // ------------------------------------------------------------- التقدّم
   static const String myProgress = '/me/progress';
   static const String progressSync = '/me/progress/sync';

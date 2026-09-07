@@ -62,17 +62,21 @@ class DownloadRepository {
 
   bool isDownloading(String lessonId) => _cancelTokens.containsKey(lessonId);
 
-  /// المسار المحلي لفيديو فقرة، أو `null` إن لم يكن محمَّلًا.
-  Future<String?> localPathFor(String blockId) async {
-    final media = await _dao.getMediaFile(blockId);
+  /// المسار المحلي لملف محمَّل (فيديو فقرة أو مرفق)، أو `null` إن لم يكن
+  /// محمَّلًا. المعرّف هو معرّف الفقرة للفيديو ومعرّف المرفق لـ PDF.
+  Future<String?> localPathFor(String fileId) async {
+    final media = await _dao.getMediaFile(fileId);
     if (media == null || !media.isReady) return null;
     final path = media.localPath!;
     if (!await _mediaStore.exists(path)) {
       // الملف حُذف من خارج التطبيق — نصحّح السجل.
       await _dao.upsertMediaFile(
         MediaFile(
+          fileId: media.fileId,
           blockId: media.blockId,
           lessonId: media.lessonId,
+          kind: media.kind,
+          fileName: media.fileName,
           remoteUrl: media.remoteUrl,
           status: DownloadStatus.none,
           updatedAt: DateTime.now().toUtc(),
@@ -107,9 +111,9 @@ class DownloadRepository {
     try {
       // 1) الفقرات أولًا: بها يصبح الدرس قابلًا للفتح بدون إنترنت.
       final blocks = await _content.getBlocks(lessonId, forceRefresh: true);
-      final videos = blocks.whereType<VideoBlock>().toList(growable: false);
+      final downloadables = _downloadablesOf(blocks);
 
-      if (videos.isEmpty) {
+      if (downloadables.isEmpty) {
         state = state.copyWith(
           status: DownloadStatus.completed,
           completedAt: DateTime.now().toUtc(),
@@ -120,7 +124,7 @@ class DownloadRepository {
 
       // 2) الحجم المتوقّع (قد يكون 0 إن لم يرسله الخادم).
       final expectedBytes =
-          videos.fold<int>(0, (sum, video) => sum + video.sizeBytes);
+          downloadables.fold<int>(0, (sum, item) => sum + item.sizeBytes);
       if (expectedBytes > 0) {
         await _mediaStore.ensureSpaceFor(
           expectedBytes,
@@ -135,11 +139,11 @@ class DownloadRepository {
       );
       await _emit(state);
 
-      // 3) تحميل الملفات واحدًا تلو الآخر.
+      // 3) تحميل الملفات واحدًا تلو الآخر: الفيديوهات ومرفقاتها معًا.
       var completedBytes = 0;
-      for (final video in videos) {
-        final path = await _downloadVideo(
-          video: video,
+      for (final item in downloadables) {
+        final path = await _downloadFile(
+          item: item,
           cancelToken: cancelToken,
           onBytes: (received, total) {
             final liveTotal = expectedBytes > 0
@@ -178,31 +182,49 @@ class DownloadRepository {
     }
   }
 
-  Future<String> _downloadVideo({
-    required VideoBlock video,
+  Future<String> _downloadFile({
+    required _Downloadable item,
     required CancelToken cancelToken,
     required void Function(int received, int total) onBytes,
   }) async {
     final finalPath = await _mediaStore.filePathFor(
-      lessonId: video.lessonId,
-      blockId: video.id,
-      remoteUrl: video.remoteUrl,
+      lessonId: item.lessonId,
+      fileId: item.fileId,
+      remoteUrl: item.url,
     );
+
+    MediaFile record({
+      required DownloadStatus status,
+      String? localPath,
+      int bytesTotal = 0,
+      int bytesDownloaded = 0,
+      String? error,
+    }) =>
+        MediaFile(
+          fileId: item.fileId,
+          blockId: item.blockId,
+          lessonId: item.lessonId,
+          kind: item.kind,
+          fileName: item.fileName,
+          remoteUrl: item.url,
+          localPath: localPath,
+          bytesTotal: bytesTotal,
+          bytesDownloaded: bytesDownloaded,
+          status: status,
+          error: error,
+          updatedAt: DateTime.now().toUtc(),
+        );
 
     // موجود مسبقًا وسليم → لا نعيد التحميل.
     if (await _mediaStore.exists(finalPath)) {
       final size = await _mediaStore.fileSize(finalPath);
       if (size > 0) {
         await _dao.upsertMediaFile(
-          MediaFile(
-            blockId: video.id,
-            lessonId: video.lessonId,
-            remoteUrl: video.remoteUrl,
+          record(
+            status: DownloadStatus.completed,
             localPath: finalPath,
             bytesTotal: size,
             bytesDownloaded: size,
-            status: DownloadStatus.completed,
-            updatedAt: DateTime.now().toUtc(),
           ),
         );
         onBytes(size, size);
@@ -216,14 +238,10 @@ class DownloadRepository {
         partialFile.existsSync() ? await partialFile.length() : 0;
 
     await _dao.upsertMediaFile(
-      MediaFile(
-        blockId: video.id,
-        lessonId: video.lessonId,
-        remoteUrl: video.remoteUrl,
-        bytesTotal: video.sizeBytes,
-        bytesDownloaded: alreadyHave,
+      record(
         status: DownloadStatus.downloading,
-        updatedAt: DateTime.now().toUtc(),
+        bytesTotal: item.sizeBytes,
+        bytesDownloaded: alreadyHave,
       ),
     );
 
@@ -232,7 +250,7 @@ class DownloadRepository {
       // من أوله، وهو ما يُفسد الاستئناف: مع ترويسة Range سيكتب الجزء
       // الجديد فوق البداية. هنا نفتح الملف في وضع الإضافة عند 206.
       final response = await _dio.get<ResponseBody>(
-        video.remoteUrl,
+        item.url,
         cancelToken: cancelToken,
         options: Options(
           responseType: ResponseType.stream,
@@ -246,7 +264,7 @@ class DownloadRepository {
 
       // 206 = الخادم قبِل الاستئناف. 200 = تجاهله ويرسل الملف كاملًا.
       final isResumed = response.statusCode == 206 && alreadyHave > 0;
-      final totalBytes = _totalBytesOf(response, fallback: video.sizeBytes);
+      final totalBytes = _totalBytesOf(response, fallback: item.sizeBytes);
 
       final sink = partialFile.openWrite(
         mode: isResumed ? FileMode.append : FileMode.write,
@@ -266,15 +284,11 @@ class DownloadRepository {
     } on DioException catch (error) {
       final mapped = ErrorMapper.fromDio(error);
       await _dao.upsertMediaFile(
-        MediaFile(
-          blockId: video.id,
-          lessonId: video.lessonId,
-          remoteUrl: video.remoteUrl,
+        record(
           status: DownloadStatus.failed,
           bytesDownloaded:
               partialFile.existsSync() ? await partialFile.length() : 0,
           error: mapped.message,
-          updatedAt: DateTime.now().toUtc(),
         ),
       );
       throw mapped;
@@ -284,18 +298,47 @@ class DownloadRepository {
     final size = await _mediaStore.fileSize(finalPath);
 
     await _dao.upsertMediaFile(
-      MediaFile(
-        blockId: video.id,
-        lessonId: video.lessonId,
-        remoteUrl: video.remoteUrl,
+      record(
+        status: DownloadStatus.completed,
         localPath: finalPath,
         bytesTotal: size,
         bytesDownloaded: size,
-        status: DownloadStatus.completed,
-        updatedAt: DateTime.now().toUtc(),
       ),
     );
     return finalPath;
+  }
+
+  /// كل الملفات التي يشملها تحميل الدرس: الفيديوهات ومرفقاتها.
+  static List<_Downloadable> _downloadablesOf(List<LessonBlock> blocks) {
+    final items = <_Downloadable>[];
+    for (final video in blocks.whereType<VideoBlock>()) {
+      if (video.remoteUrl.isNotEmpty) {
+        items.add(
+          _Downloadable(
+            fileId: video.id,
+            blockId: video.id,
+            lessonId: video.lessonId,
+            kind: MediaKind.video,
+            url: video.remoteUrl,
+            sizeBytes: video.sizeBytes,
+          ),
+        );
+      }
+      for (final attachment in video.attachments) {
+        items.add(
+          _Downloadable(
+            fileId: attachment.id,
+            blockId: video.id,
+            lessonId: video.lessonId,
+            kind: MediaKind.pdf,
+            url: attachment.url,
+            sizeBytes: attachment.sizeBytes,
+            fileName: attachment.fileName,
+          ),
+        );
+      }
+    }
+    return items;
   }
 
   /// الحجم الكلّي للملف: من `Content-Range` عند الاستئناف، وإلا
@@ -375,6 +418,36 @@ class DownloadRepository {
     }
   }
 
+  /// المسار المحلي لمرفق PDF، أو `null` إن لم يكن محمَّلًا.
+  Future<String?> localAttachmentPath(String attachmentId) =>
+      localPathFor(attachmentId);
+
+  /// تحميل مرفق واحد فقط (زر «تنزيل» بجانب الملف).
+  Future<String> downloadAttachment({
+    required String lessonId,
+    required String blockId,
+    required BlockAttachment attachment,
+  }) async {
+    if (!await _networkInfo.isOnline) {
+      throw const NetworkException(
+        message: 'التنزيل يحتاج اتصالًا بالإنترنت.',
+      );
+    }
+    return _downloadFile(
+      item: _Downloadable(
+        fileId: attachment.id,
+        blockId: blockId,
+        lessonId: lessonId,
+        kind: MediaKind.pdf,
+        url: attachment.url,
+        sizeBytes: attachment.sizeBytes,
+        fileName: attachment.fileName,
+      ),
+      cancelToken: CancelToken(),
+      onBytes: (_, __) {},
+    );
+  }
+
   void dispose() {
     for (final token in _cancelTokens.values) {
       token.cancel('disposed');
@@ -385,4 +458,25 @@ class DownloadRepository {
     }
     _controllers.clear();
   }
+}
+
+/// وصف ملف واحد قابل للتحميل ضمن درس.
+class _Downloadable {
+  const _Downloadable({
+    required this.fileId,
+    required this.blockId,
+    required this.lessonId,
+    required this.kind,
+    required this.url,
+    this.sizeBytes = 0,
+    this.fileName,
+  });
+
+  final String fileId;
+  final String blockId;
+  final String lessonId;
+  final MediaKind kind;
+  final String url;
+  final int sizeBytes;
+  final String? fileName;
 }

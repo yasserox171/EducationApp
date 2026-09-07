@@ -203,6 +203,23 @@ Map<String, dynamic> _text(
       'updated_at': _now(),
     };
 
+/// ملف PDF عام صغير (~١٣ ك.ب) يُستعمل كمرفق في بيانات التجربة.
+const String _demoPdfUrl =
+    'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+
+Map<String, dynamic> _pdf({
+  required String id,
+  required String fileName,
+  int sizeBytes = 13264,
+}) =>
+    {
+      'id': id,
+      'file_name': fileName,
+      'url': _demoPdfUrl,
+      'file_size': sizeBytes,
+      'created_at': _now(),
+    };
+
 Map<String, dynamic> _video(
   String id,
   String lessonId,
@@ -211,6 +228,7 @@ Map<String, dynamic> _video(
   required String url,
   required int sizeBytes,
   int durationSeconds = 15,
+  List<Map<String, dynamic>> attachments = const [],
 }) =>
     {
       'id': id,
@@ -222,6 +240,7 @@ Map<String, dynamic> _video(
         'url': url,
         'duration_seconds': durationSeconds,
         'size_bytes': sizeBytes,
+        'attachments': attachments,
       },
       'updated_at': _now(),
     };
@@ -317,6 +336,10 @@ Map<String, List<Map<String, dynamic>>> demoBlocks() => {
           title: 'شرح مرئي: خطوات الحلّ',
           url: _Videos.blazes,
           sizeBytes: _Videos.blazesBytes,
+          attachments: [
+            _pdf(id: 'att-m1-1', fileName: 'ملخص المعادلات.pdf'),
+            _pdf(id: 'att-m1-2', fileName: 'تمارين تطبيقية.pdf'),
+          ],
         ),
         _quiz(
           'b-m1-4',
@@ -510,6 +533,9 @@ Map<String, List<Map<String, dynamic>>> demoBlocks() => {
           title: 'تجربة: تركيب دارة',
           url: _Videos.meltdowns,
           sizeBytes: _Videos.meltdownsBytes,
+          attachments: [
+            _pdf(id: 'att-p1-1', fileName: 'ورقة التجربة.pdf'),
+          ],
         ),
         _quiz(
           'b-p1-4',

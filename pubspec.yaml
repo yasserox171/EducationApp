@@ -48,7 +48,6 @@ dependencies:
   # يجب أن يطابق ما يثبّته flutter_localizations.
   intl: ^0.20.3
   collection: ^1.18.0
-
 dev_dependencies:
   flutter_test:
     sdk: flutter

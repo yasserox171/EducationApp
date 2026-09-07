@@ -38,6 +38,56 @@ void main() {
       expect(block.sizeBytes, 1024);
     });
 
+    test('فقرة الفيديو تقرأ مرفقاتها وتعيد كتابتها', () {
+      final block = LessonBlock.fromJson({
+        'id': '2',
+        'lesson_id': '10',
+        'position': 0,
+        'type': 'video',
+        'data': {
+          'url': 'https://cdn.example.com/a.mp4',
+          'size_bytes': 1024,
+          'attachments': [
+            {
+              'id': 'att-1',
+              'file_name': 'ملخص.pdf',
+              'url': 'https://cdn.example.com/a.pdf',
+              'file_size': 2048,
+            },
+          ],
+        },
+      }) as VideoBlock;
+
+      expect(block.attachments.length, 1);
+      expect(block.attachments.single.fileName, 'ملخص.pdf');
+      expect(block.attachments.single.sizeBytes, 2048);
+
+      final restored = LessonBlock.fromDbRow(block.toDbRow()) as VideoBlock;
+      expect(restored.attachments.single.id, 'att-1');
+      expect(restored.attachments.single.url, 'https://cdn.example.com/a.pdf');
+    });
+
+    test('فقرة فيديو قديمة بلا مرفقات تبقى صالحة', () {
+      final block = LessonBlock.fromJson({
+        'id': '2',
+        'lesson_id': '10',
+        'position': 0,
+        'type': 'video',
+        'data': {'url': 'https://cdn.example.com/a.mp4'},
+      }) as VideoBlock;
+
+      expect(block.attachments, isEmpty);
+    });
+
+    test('المرفق بلا رابط يُتجاهل', () {
+      final attachments = BlockAttachment.listFrom([
+        {'id': 'a', 'file_name': 'x.pdf', 'url': ''},
+        {'id': 'b', 'file_name': 'y.pdf', 'url': 'https://x/y.pdf'},
+      ]);
+
+      expect(attachments.map((a) => a.id), ['b']);
+    });
+
     test('الشكل القديم (سؤال واحد في الجذر) يُقرأ كسؤال معرّفه معرّف الفقرة',
         () {
       final block = LessonBlock.fromJson({

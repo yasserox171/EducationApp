@@ -92,23 +92,55 @@
       "url": "https://cdn.example.com/videos/abc.mp4",
       "thumbnail_url": "https://cdn.example.com/thumbs/abc.jpg",
       "duration_seconds": 420,
-      "size_bytes": 48234123
+      "size_bytes": 48234123,
+      "attachments": [
+        {
+          "id": "7",
+          "file_name": "ملخص الدرس.pdf",
+          "url": "https://cdn.example.com/files/summary.pdf",
+          "file_size": 384219,
+          "created_at": "2026-09-02T09:00:00Z"
+        }
+      ]
     }
   },
   {
     "id": "102", "lesson_id": "10", "position": 2, "type": "quiz",
     "data": {
-      "question": "ما هو حل المعادلة؟",
-      "options": [
-        { "id": "a", "text": "٢" },
-        { "id": "b", "text": "٣" }
-      ],
-      "correct_option_id": "b",
-      "explanation": "لأن…"
+      "questions": [
+        {
+          "id": "q1",
+          "question": "ما هو حل المعادلة؟",
+          "options": [
+            { "id": "a", "text": "٢" },
+            { "id": "b", "text": "٣" }
+          ],
+          "correct_option_id": "b",
+          "explanation": "لأن…"
+        },
+        {
+          "id": "q2",
+          "question": "سؤال آخر في نفس الفقرة",
+          "options": [
+            { "id": "a", "text": "نعم" },
+            { "id": "b", "text": "لا" }
+          ],
+          "correct_option_id": "a"
+        }
+      ]
     }
   }
 ]
 ```
+
+> **فقرة الكويز تحمل عدة أسئلة.** التطبيق يقبل أيضًا الشكل القديم
+> (`question` و`options` و`correct_option_id` في جذر `data`) ويقرأه كسؤال
+> واحد معرّفه هو معرّف الفقرة، فلا تنكسر البيانات القائمة. الأسئلة الجديدة
+> تحتاج `id` ثابتًا داخل الفقرة (`q1`, `q2`…) لأن محاولات التلاميذ تُربط به.
+
+> **`attachments`** ملفات PDF مرفقة بفقرة الفيديو. `file_size` مهم: يُستعمل
+> لحساب المساحة قبل تحميل الدرس. الروابط تُطلب مباشرة عند التحميل، ويُفضَّل
+> دعم `Range` فيها كما في الفيديو.
 
 > **مهم لعمل الكويز أوفلاين:** `correct_option_id` يجب أن يصل مع الفقرة،
 > لأن التصحيح فوري على الجهاز حتى بدون إنترنت. إن كان إخفاؤه مطلوبًا
@@ -152,6 +184,49 @@
 ```
 التطبيق يرفض محليًا أي ملف أكبر من `MAX_VIDEO_UPLOAD_MB` (300 م.ب افتراضيًا)
 قبل بدء الرفع. تأكّد أن حدّ الخادم (`client_max_body_size`) لا يقلّ عن ذلك.
+
+### `POST /blocks/{blockId}/attachments`
+
+رفع ملف PDF مرفق بفقرة فيديو، `multipart/form-data` بحقل `file`.
+
+```json
+{
+  "id": "7",
+  "file_name": "ملخص الدرس.pdf",
+  "url": "https://cdn.example.com/files/summary.pdf",
+  "file_size": 384219,
+  "created_at": "2026-09-02T09:00:00Z"
+}
+```
+
+**تحقّقات مطلوبة على الخادم:** أن يكون الملف PDF فعلًا (لا بالامتداد وحده
+بل بفحص التوقيع `%PDF-`)، وألا يتجاوز `MAX_ATTACHMENT_MB` (٢٠ م.ب افتراضيًا).
+التطبيق يتحقّق من الامتداد والحجم قبل الرفع، لكن هذا لا يغني عن تحقّق الخادم.
+
+### `DELETE /attachments/{id}` → `204`
+
+يحذف الملف من التخزين. إزالة المرفق من الفقرة تتم عبر
+`PUT /blocks/{id}` بقائمة `attachments` الجديدة.
+
+### جدول قاعدة البيانات المقترح
+
+```sql
+CREATE TABLE lesson_block_attachments (
+  id              BIGSERIAL PRIMARY KEY,
+  lesson_block_id BIGINT NOT NULL REFERENCES lesson_blocks(id) ON DELETE CASCADE,
+  file_name       TEXT NOT NULL,
+  file_path       TEXT NOT NULL,
+  file_size       BIGINT NOT NULL DEFAULT 0,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_attachments_block ON lesson_block_attachments (lesson_block_id);
+```
+
+علاقة واحد-لعدة: فقرة الفيديو الواحدة تحمل عدة ملفات. `ON DELETE CASCADE`
+يضمن اختفاء المرفقات مع حذف الفقرة. عند بناء رد `GET /lessons/{id}/blocks`
+تُسقَط صفوف هذا الجدول داخل `data.attachments` كما في المثال أعلاه، مع
+تحويل `file_path` إلى رابط `url` قابل للتنزيل.
 
 ---
 
